@@ -1,7 +1,6 @@
 package iapetus
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -45,25 +44,30 @@ func (s *Step) Run() error {
 		s.Retries = 1
 	}
 	log.Printf("Running step: %s", s.Name)
-	cmd := exec.Command(s.Command, s.Args...)
-	cmd.Env = append(os.Environ(), s.Env...)
+	log.Printf("Retries: %d", s.Retries)
+	var err error
+	for attempt := 0; attempt < s.Retries; attempt++ {
+		cmd := exec.Command(s.Command, s.Args...)
+		cmd.Env = append(os.Environ(), s.Env...)
 
-	output, err := cmd.Output()
-	s.Actual.ExitCode = getExitCode(err)
-	s.Actual.Output = string(output)
+		output, err := cmd.Output()
+		s.Actual.ExitCode = getExitCode(err)
+		s.Actual.Output = string(output)
 
-	if err != nil {
-		fmt.Println(s.Actual.Error)
-		s.Actual.Error = err.Error()
-	}
+		if err != nil {
+			s.Actual.Error = err.Error()
+		}
 
-	for _, assert := range s.Asserts {
-		if err := assert(s); err != nil {
-			log.Printf("Assertion failed: %s", err.Error())
-			return err
+		for _, assert := range s.Asserts {
+			if err := assert(s); err != nil {
+				log.Printf("Attempt %d/%d failed with error: %s", attempt+1, s.Retries, err.Error())
+				time.Sleep(1 * time.Second)
+				break
+			}
 		}
 	}
-	return nil
+
+	return err
 }
 
 func (s *Step) AddAssertion(assert func(*Step) error) *Step {
