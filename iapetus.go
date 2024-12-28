@@ -1,72 +1,114 @@
 package iapetus
 
 import (
-	"errors"
 	"fmt"
-	"strings"
+	"log"
+	"os"
+	"os/exec"
+	"time"
 
-	jd "github.com/josephburnett/jd/lib"
+	"github.com/google/uuid"
 )
 
-func AssertByExitCode(i *Task) error {
-	if i.Actual.ExitCode != i.Expected.ExitCode {
-		return fmt.Errorf("exit code mismatch: expected %d, got %d", i.Expected.ExitCode, i.Actual.ExitCode)
-	}
-	return nil
+type Task struct {
+	Name          string
+	Command       string
+	Retries       int
+	Args          []string
+	Timeout       time.Duration
+	Env           []string
+	Expected      Output
+	Actual        Output
+	SkipJsonNodes []string
+	Asserts       []func(*Task) error
 }
 
-func AssertByOutputString(i *Task) error {
-	if i.Actual.Output != i.Expected.Output {
-		return fmt.Errorf("output mismatch: expected %q, got %q", i.Expected.Output, i.Actual.Output)
-	}
-	return nil
+type Output struct {
+	ExitCode int
+	Output   string
+	Error    string
+	Contains []string
 }
 
-func AssertByOutputJson(i *Task) error {
-	expectation, err := jd.ReadJsonString(i.Expected.Output)
-	if err != nil {
-		return errors.New("Failed to read expectation: " + err.Error())
+func NewTask(name string, timeout time.Duration) *Task {
+	if name == "" {
+		name = "task-" + uuid.New().String()
 	}
+	return &Task{Name: name, Timeout: timeout}
+}
 
-	// normalize linebreaks
-	parsedOutput, err := jd.ReadJsonString(strings.ReplaceAll(i.Actual.Output, "\\r\\n", "\\n"))
-	if err != nil {
-		return errors.New("Failed to parse output: " + err.Error())
+func (s *Task) Run() error {
+	if s.Name == "" {
+		s.Name = "task-" + uuid.New().String()
 	}
+	if s.Retries == 0 {
+		s.Retries = 1
+	}
+	log.Printf("Running task: %s", s.Name)
 
-	diff := expectation.Diff(parsedOutput)
-	if len(diff) != 0 {
-		var path jd.JsonNode
-		for _, d := range diff {
-			path = d.Path[len(d.Path)-1]
-			for _, skip := range i.SkipJsonNodes {
-				if path.Json() == skip {
+	for attempt := 1; attempt <= s.Retries; attempt++ {
+		log.Printf("Attempt %d of %d for task: %s", attempt, s.Retries, s.Name)
+
+		cmd := exec.Command(s.Command, s.Args...)
+		cmd.Env = append(os.Environ(), s.Env...)
+
+		output, err := cmd.CombinedOutput()
+		s.Actual.ExitCode = getExitCode(err)
+		s.Actual.Output = string(output)
+
+		if err != nil {
+			s.Actual.Error = err.Error()
+			log.Printf("Error executing task %s: %v", s.Name, err)
+		}
+
+		for _, assert := range s.Asserts {
+			if err := assert(s); err != nil {
+				log.Printf("Assertion failed for task %s: %v", s.Name, err)
+				if attempt < s.Retries {
+					log.Printf("Retrying task %s after failure", s.Name)
+					time.Sleep(1 * time.Second)
 					continue
 				}
-				return fmt.Errorf(
-					"mismatch at path %v. Expected json: %v, but found: %v",
-					d.Path, d.NewValues, d.OldValues,
-				)
+				return fmt.Errorf("assertion failed for task %s: %w", s.Name, err)
 			}
-
 		}
+		break
 	}
 
 	return nil
 }
 
-func AssertByContains(i *Task) error {
-	for _, expected := range i.Expected.Contains {
-		if !strings.Contains(i.Actual.Output, expected) {
-			return fmt.Errorf("output does not contain expected substring: %q", expected)
-		}
-	}
-	return nil
+func (s *Task) AddAssertion(assert func(*Task) error) *Task {
+	s.Asserts = append(s.Asserts, assert)
+	return s
 }
 
-func AssertByError(i *Task) error {
-	if i.Actual.Error != i.Expected.Error {
-		return fmt.Errorf("error mismatch: expected %q, got %q", i.Expected.Error, i.Actual.Error)
-	}
-	return nil
+func (s *Task) AddContains(contains ...string) *Task {
+	s.Expected.Contains = append(s.Expected.Contains, contains...)
+	return s
+}
+
+func (s *Task) AddEnv(env ...string) *Task {
+	s.Env = append(s.Env, env...)
+	return s
+}
+
+func (s *Task) AddArgs(args ...string) *Task {
+	s.Args = append(s.Args, args...)
+	return s
+}
+
+func (s *Task) AddSkipJsonNodes(skipJsonNodes ...string) *Task {
+	s.SkipJsonNodes = append(s.SkipJsonNodes, skipJsonNodes...)
+	return s
+}
+
+func (s *Task) AddExpected(expected Output) *Task {
+	s.Expected = expected
+	return s
+}
+
+func (s *Task) AddCommand(command string) *Task {
+	s.Command = command
+	return s
 }
