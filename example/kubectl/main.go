@@ -11,7 +11,7 @@ import (
 	"k8s.io/api/core/v1"
 )
 
-const ns = "test1"
+const ns = "test"
 
 func assertPodsLength(s *iapetus.Step) error {
 	pods := &v1.PodList{}
@@ -38,6 +38,11 @@ func assertNsLength(s *iapetus.Step) error {
 }
 
 func main() {
+	setupWorkflowSpec := setupWorkflow()
+	if err := setupWorkflowSpec.Run(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 	tests := getTestCasesForKubernetes()
 	for _, test := range tests {
 		if err := test.Run(); err != nil {
@@ -49,6 +54,38 @@ func main() {
 	if err := workflow.Run(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
+	}
+}
+
+func setupWorkflow() iapetus.Workflow {
+	return iapetus.Workflow{
+		Name: "Entire flow",
+		Steps: []iapetus.Step{
+			{
+				Name:    "Create Kind Cluster",
+				Command: "kind",
+				Args:    []string{"create", "cluster"},
+				Env:     []string{},
+				Expected: iapetus.Output{
+					ExitCode: 0,
+				},
+				Asserts: []func(*iapetus.Step) error{
+					iapetus.AssertByExitCode,
+				},
+			},
+			// {
+			// 	Name:    "Deploy Dummy Helm Chart for integration testing",
+			// 	Command: "helm",
+			// 	Args:    []string{"upgrade", "--install", "nginx", "nginx-chart", "--namespace", ns, "--create-namespace"},
+			// 	Env:     []string{},
+			// 	Expected: iapetus.Output{
+			// 		ExitCode: 0,
+			// 	},
+			// 	Asserts: []func(*iapetus.Step) error{
+			// 		iapetus.AssertByExitCode,
+			// 	},
+			// },
+		},
 	}
 }
 

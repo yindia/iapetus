@@ -1,6 +1,7 @@
 package iapetus
 
 import (
+	"errors"
 	"log"
 	"os"
 	"os/exec"
@@ -44,8 +45,7 @@ func (s *Step) Run() error {
 		s.Retries = 1
 	}
 	log.Printf("Running step: %s", s.Name)
-	log.Printf("Retries: %d", s.Retries)
-	var err error
+
 	for attempt := 0; attempt < s.Retries; attempt++ {
 		cmd := exec.Command(s.Command, s.Args...)
 		cmd.Env = append(os.Environ(), s.Env...)
@@ -60,14 +60,13 @@ func (s *Step) Run() error {
 
 		for _, assert := range s.Asserts {
 			if err := assert(s); err != nil {
-				log.Printf("Attempt %d/%d failed with error: %s", attempt+1, s.Retries, err.Error())
 				time.Sleep(1 * time.Second)
-				break
+				return errors.New("assertion failed: " + err.Error())
 			}
 		}
 	}
 
-	return err
+	return nil
 }
 
 func (s *Step) AddAssertion(assert func(*Step) error) *Step {
