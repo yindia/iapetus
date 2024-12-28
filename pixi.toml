@@ -1,0 +1,12 @@
+[project]
+authors = ["yindia <evalsocket@gmail.com>"]
+channels = ["conda-forge"]
+description = "Add a short description here"
+name = "iapetus"
+platforms = ["osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+go = "1.23.0"

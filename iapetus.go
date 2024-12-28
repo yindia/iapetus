@@ -1,13 +1,12 @@
 package iapetus
 
 import (
-	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"time"
 
-	"github.com/cenkalti/backoff/v5"
 	"github.com/google/uuid"
 )
 
@@ -46,31 +45,24 @@ func (s *Step) Run() error {
 		s.Retries = 1
 	}
 	log.Printf("Running step: %s", s.Name)
-	operation := func() error {
-		cmd := exec.Command(s.Command, s.Args...)
-		cmd.Env = append(os.Environ(), s.Env...)
+	cmd := exec.Command(s.Command, s.Args...)
+	cmd.Env = append(os.Environ(), s.Env...)
 
-		output, err := cmd.Output()
-		s.Actual.ExitCode = getExitCode(err)
-		s.Actual.Output = string(output)
+	output, err := cmd.Output()
+	s.Actual.ExitCode = getExitCode(err)
+	s.Actual.Output = string(output)
 
-		if err != nil {
-			s.Actual.Error = err.Error()
-		}
-
-		for _, assert := range s.Asserts {
-			if err := assert(s); err != nil {
-				log.Printf("Assertion failed: %s", err.Error())
-				return err
-			}
-		}
-		return nil
-	}
-	_, err := backoff.Retry(context.TODO(), operation, backoff.WithBackOff(backoff.NewConstantBackOff(s.Retries)))
 	if err != nil {
-		return err
+		fmt.Println(s.Actual.Error)
+		s.Actual.Error = err.Error()
 	}
 
+	for _, assert := range s.Asserts {
+		if err := assert(s); err != nil {
+			log.Printf("Assertion failed: %s", err.Error())
+			return err
+		}
+	}
 	return nil
 }
 
