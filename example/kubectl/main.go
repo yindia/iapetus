@@ -13,7 +13,7 @@ import (
 
 const ns = "test"
 
-func assertPodsLength(s *iapetus.Step) error {
+func assertPodsLength(s *iapetus.Task) error {
 	pods := &v1.PodList{}
 	err := json.Unmarshal([]byte(s.Actual.Output), &pods)
 	if err != nil {
@@ -25,7 +25,7 @@ func assertPodsLength(s *iapetus.Step) error {
 	return nil
 }
 
-func assertNsLength(s *iapetus.Step) error {
+func assertNsLength(s *iapetus.Task) error {
 	ns := &v1.Namespace{}
 	err := json.Unmarshal([]byte(s.Actual.Output), &ns)
 	if err != nil {
@@ -55,12 +55,18 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
+	teardownWorkflow := teardownWorkflow()
+	if err := teardownWorkflow.Run(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
 
 func setupWorkflow() iapetus.Workflow {
 	return iapetus.Workflow{
 		Name: "Entire flow",
-		Steps: []iapetus.Step{
+		Steps: []iapetus.Task{
 			{
 				Name:    "Create Kind Cluster",
 				Command: "kind",
@@ -69,22 +75,30 @@ func setupWorkflow() iapetus.Workflow {
 				Expected: iapetus.Output{
 					ExitCode: 0,
 				},
-				Asserts: []func(*iapetus.Step) error{
+				Asserts: []func(*iapetus.Task) error{
 					iapetus.AssertByExitCode,
 				},
 			},
-			// {
-			// 	Name:    "Deploy Dummy Helm Chart for integration testing",
-			// 	Command: "helm",
-			// 	Args:    []string{"upgrade", "--install", "nginx", "nginx-chart", "--namespace", ns, "--create-namespace"},
-			// 	Env:     []string{},
-			// 	Expected: iapetus.Output{
-			// 		ExitCode: 0,
-			// 	},
-			// 	Asserts: []func(*iapetus.Step) error{
-			// 		iapetus.AssertByExitCode,
-			// 	},
-			// },
+		},
+	}
+}
+
+func teardownWorkflow() iapetus.Workflow {
+	return iapetus.Workflow{
+		Name: "Entire flow",
+		Steps: []iapetus.Task{
+			{
+				Name:    "Delete Kind Cluster",
+				Command: "kind",
+				Args:    []string{"delete", "cluster"},
+				Env:     []string{},
+				Expected: iapetus.Output{
+					ExitCode: 0,
+				},
+				Asserts: []func(*iapetus.Task) error{
+					iapetus.AssertByExitCode,
+				},
+			},
 		},
 	}
 }
@@ -92,7 +106,7 @@ func setupWorkflow() iapetus.Workflow {
 func getWorkflowCasesForKubernetes() iapetus.Workflow {
 	return iapetus.Workflow{
 		Name: "Entire flow",
-		Steps: []iapetus.Step{
+		Steps: []iapetus.Task{
 			{
 				Name:    "kubectl-create-ns",
 				Command: "kubectl",
@@ -101,7 +115,7 @@ func getWorkflowCasesForKubernetes() iapetus.Workflow {
 				Expected: iapetus.Output{
 					ExitCode: 0,
 				},
-				Asserts: []func(*iapetus.Step) error{
+				Asserts: []func(*iapetus.Task) error{
 					iapetus.AssertByExitCode,
 				},
 			},
@@ -113,7 +127,7 @@ func getWorkflowCasesForKubernetes() iapetus.Workflow {
 				Expected: iapetus.Output{
 					ExitCode: 0,
 				},
-				Asserts: []func(*iapetus.Step) error{
+				Asserts: []func(*iapetus.Task) error{
 					iapetus.AssertByExitCode,
 					assertNsLength,
 				},
@@ -126,7 +140,7 @@ func getWorkflowCasesForKubernetes() iapetus.Workflow {
 				Expected: iapetus.Output{
 					ExitCode: 0,
 				},
-				Asserts: []func(*iapetus.Step) error{
+				Asserts: []func(*iapetus.Task) error{
 					iapetus.AssertByExitCode,
 					assertPodsLength,
 				},
@@ -139,7 +153,7 @@ func getWorkflowCasesForKubernetes() iapetus.Workflow {
 				Expected: iapetus.Output{
 					ExitCode: 0,
 				},
-				Asserts: []func(*iapetus.Step) error{
+				Asserts: []func(*iapetus.Task) error{
 					iapetus.AssertByExitCode,
 				},
 			},
@@ -150,11 +164,11 @@ func getWorkflowCasesForKubernetes() iapetus.Workflow {
 				Env:     []string{},
 				Retries: 1,
 				Expected: iapetus.Output{
-					ExitCode: 1,
+					ExitCode: 0,
 				},
-				Asserts: []func(*iapetus.Step) error{
+				Asserts: []func(*iapetus.Task) error{
 					iapetus.AssertByExitCode,
-					func(s *iapetus.Step) error {
+					func(s *iapetus.Task) error {
 						deployment := &appsv1.DeploymentList{}
 						err := json.Unmarshal([]byte(s.Actual.Output), &deployment)
 						if err != nil {
@@ -187,7 +201,7 @@ func getWorkflowCasesForKubernetes() iapetus.Workflow {
 				Expected: iapetus.Output{
 					ExitCode: 0,
 				},
-				Asserts: []func(*iapetus.Step) error{
+				Asserts: []func(*iapetus.Task) error{
 					iapetus.AssertByExitCode,
 				},
 			},
@@ -204,8 +218,8 @@ func getWorkflowCasesForKubernetes() iapetus.Workflow {
 	}
 }
 
-func getTestCasesForKubernetes() []iapetus.Step {
-	return []iapetus.Step{
+func getTestCasesForKubernetes() []iapetus.Task {
+	return []iapetus.Task{
 		{
 			Name:    "kubectl-get-pods",
 			Command: "kubectl",
@@ -214,7 +228,7 @@ func getTestCasesForKubernetes() []iapetus.Step {
 			Expected: iapetus.Output{
 				ExitCode: 0,
 			},
-			Asserts: []func(*iapetus.Step) error{
+			Asserts: []func(*iapetus.Task) error{
 				iapetus.AssertByExitCode,
 			},
 		},
@@ -226,7 +240,7 @@ func getTestCasesForKubernetes() []iapetus.Step {
 			Expected: iapetus.Output{
 				ExitCode: 0,
 			},
-			Asserts: []func(*iapetus.Step) error{
+			Asserts: []func(*iapetus.Task) error{
 				iapetus.AssertByExitCode,
 				assertPodsLength,
 			},

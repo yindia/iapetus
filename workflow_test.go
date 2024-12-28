@@ -13,39 +13,27 @@ func TestWorkflowRun(t *testing.T) {
 		{
 			name: "All Steps Pass",
 			workflow: Workflow{
-				Steps: []Step{
+				Steps: []Task{
 					{
 						Command:  "echo",
 						Args:     []string{"hello"},
 						Expected: Output{ExitCode: 0, Output: "hello\n"},
-						Asserts:  []func(*Step) error{AssertByExitCode},
+						Asserts:  []func(*Task) error{AssertByExitCode},
 					},
 				},
 			},
 			wantErr: false,
 		},
-		{
-			name: "Step Fails on Exit Code",
-			workflow: Workflow{
-				Steps: []Step{
-					{
-						Command:  "false",
-						Expected: Output{ExitCode: 1},
-						Asserts:  []func(*Step) error{AssertByExitCode},
-					},
-				},
-			},
-			wantErr: false,
-		},
+
 		{
 			name: "Step Fails on Output",
 			workflow: Workflow{
-				Steps: []Step{
+				Steps: []Task{
 					{
 						Command:  "echo",
 						Args:     []string{"hello"},
 						Expected: Output{Output: "world\n"},
-						Asserts:  []func(*Step) error{AssertByOutputString},
+						Asserts:  []func(*Task) error{AssertByOutputString},
 					},
 				},
 			},

@@ -7,11 +7,11 @@ import (
 func TestAssertByExitCode(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   *Step
+		input   *Task
 		wantErr bool
 	}{
-		{"Matching Exit Codes", &Step{Actual: Output{0, "", "", []string{}}, Expected: Output{0, "", "", []string{}}}, false},
-		{"Mismatched Exit Codes", &Step{Actual: Output{1, "", "", []string{}}, Expected: Output{0, "", "", []string{}}}, true},
+		{"Matching Exit Codes", &Task{Actual: Output{0, "", "", []string{}}, Expected: Output{0, "", "", []string{}}}, false},
+		{"Mismatched Exit Codes", &Task{Actual: Output{1, "", "", []string{}}, Expected: Output{0, "", "", []string{}}}, true},
 	}
 
 	for _, tt := range tests {
@@ -27,14 +27,14 @@ func TestAssertByExitCode(t *testing.T) {
 func TestAssertByOutputString(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   *Step
+		input   *Task
 		wantErr bool
 	}{
-		{"Matching Output Strings", &Step{
+		{"Matching Output Strings", &Task{
 			Actual:   Output{0, "output", "", []string{}},
 			Expected: Output{0, "output", "", []string{}},
 		}, false},
-		{"Mismatched Output Strings", &Step{
+		{"Mismatched Output Strings", &Task{
 			Actual:   Output{0, "output1", "", []string{}},
 			Expected: Output{0, "output2", "", []string{}},
 		}, true},
@@ -54,14 +54,14 @@ func TestAssertByOutputJson(t *testing.T) {
 	// Assuming parseJSONOutputs and compareJSON are implemented correctly
 	tests := []struct {
 		name    string
-		input   *Step
+		input   *Task
 		wantErr bool
 	}{
-		{"Matching JSON Outputs", &Step{
+		{"Matching JSON Outputs", &Task{
 			Actual:   Output{0, `{"key":"value"}`, "", []string{}},
 			Expected: Output{0, `{"key":"value"}`, "", []string{}},
 		}, false},
-		{"Mismatched JSON Outputs", &Step{
+		{"Mismatched JSON Outputs", &Task{
 			Actual:   Output{0, `{"key":"value1"}`, "", []string{}},
 			Expected: Output{0, `{"key":"value2"}`, "", []string{}},
 		}, false},
@@ -80,14 +80,14 @@ func TestAssertByOutputJson(t *testing.T) {
 func TestAssertByError(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   *Step
+		input   *Task
 		wantErr bool
 	}{
-		{"Matching Errors", &Step{
+		{"Matching Errors", &Task{
 			Actual:   Output{0, "", "error", []string{}},
 			Expected: Output{0, "", "error", []string{}},
 		}, false},
-		{"Mismatched Errors", &Step{
+		{"Mismatched Errors", &Task{
 			Actual:   Output{0, "", "error1", []string{}},
 			Expected: Output{0, "", "error2", []string{}},
 		}, true},

@@ -6,7 +6,7 @@ import (
 )
 
 func TestIntegrationTest_Run(t *testing.T) {
-	test := &Step{
+	test := &Task{
 		Command: "echo",
 		Args:    []string{"Hello, World!"},
 	}
@@ -22,8 +22,8 @@ func TestIntegrationTest_Run(t *testing.T) {
 }
 
 func TestIntegrationTest_AddAssertion(t *testing.T) {
-	test := &Step{}
-	assertion := func(i *Step) error {
+	test := &Task{}
+	assertion := func(i *Task) error {
 		return nil
 	}
 
@@ -35,11 +35,11 @@ func TestIntegrationTest_AddAssertion(t *testing.T) {
 }
 
 func TestIntegrationTest_AddMultipleAssertions(t *testing.T) {
-	test := &Step{}
-	assertion1 := func(i *Step) error {
+	test := &Task{}
+	assertion1 := func(i *Task) error {
 		return nil
 	}
-	assertion2 := func(i *Step) error {
+	assertion2 := func(i *Task) error {
 		return errors.New("failed assertion")
 	}
 
@@ -52,13 +52,13 @@ func TestIntegrationTest_AddMultipleAssertions(t *testing.T) {
 }
 
 func TestIntegrationTest_RunCommandError(t *testing.T) {
-	test := &Step{
+	test := &Task{
 		Command: "invalid_command",
 
 		Expected: Output{
 			ExitCode: 1,
 		},
-		Asserts: []func(*Step) error{
+		Asserts: []func(*Task) error{
 			AssertByExitCode,
 		},
 	}

@@ -2,104 +2,71 @@ package iapetus
 
 import (
 	"errors"
-	"log"
-	"os"
-	"os/exec"
-	"time"
+	"fmt"
+	"strings"
 
-	"github.com/google/uuid"
+	jd "github.com/josephburnett/jd/lib"
 )
 
-type Step struct {
-	Name          string
-	Command       string
-	Retries       int
-	Args          []string
-	Timeout       time.Duration
-	Env           []string
-	Expected      Output
-	Actual        Output
-	SkipJsonNodes []string
-	Asserts       []func(*Step) error
+func AssertByExitCode(i *Task) error {
+	if i.Actual.ExitCode != i.Expected.ExitCode {
+		return fmt.Errorf("exit code mismatch: expected %d, got %d", i.Expected.ExitCode, i.Actual.ExitCode)
+	}
+	return nil
 }
 
-type Output struct {
-	ExitCode int
-	Output   string
-	Error    string
-	Contains []string
+func AssertByOutputString(i *Task) error {
+	if i.Actual.Output != i.Expected.Output {
+		return fmt.Errorf("output mismatch: expected %q, got %q", i.Expected.Output, i.Actual.Output)
+	}
+	return nil
 }
 
-func NewStep(name string, timeout time.Duration) *Step {
-	if name == "" {
-		name = "step-" + uuid.New().String()
+func AssertByOutputJson(i *Task) error {
+	expectation, err := jd.ReadJsonString(i.Expected.Output)
+	if err != nil {
+		return errors.New("Failed to read expectation: " + err.Error())
 	}
-	return &Step{Name: name, Timeout: timeout}
-}
 
-func (s *Step) Run() error {
-	if s.Name == "" {
-		s.Name = "step-" + uuid.New().String()
+	// normalize linebreaks
+	parsedOutput, err := jd.ReadJsonString(strings.ReplaceAll(i.Actual.Output, "\\r\\n", "\\n"))
+	if err != nil {
+		return errors.New("Failed to parse output: " + err.Error())
 	}
-	if s.Retries == 0 {
-		s.Retries = 1
-	}
-	log.Printf("Running step: %s", s.Name)
 
-	for attempt := 0; attempt < s.Retries; attempt++ {
-		cmd := exec.Command(s.Command, s.Args...)
-		cmd.Env = append(os.Environ(), s.Env...)
-
-		output, err := cmd.Output()
-		s.Actual.ExitCode = getExitCode(err)
-		s.Actual.Output = string(output)
-
-		if err != nil {
-			s.Actual.Error = err.Error()
-		}
-
-		for _, assert := range s.Asserts {
-			if err := assert(s); err != nil {
-				time.Sleep(1 * time.Second)
-				return errors.New("assertion failed: " + err.Error())
+	diff := expectation.Diff(parsedOutput)
+	if len(diff) != 0 {
+		var path jd.JsonNode
+		for _, d := range diff {
+			path = d.Path[len(d.Path)-1]
+			for _, skip := range i.SkipJsonNodes {
+				if path.Json() == skip {
+					continue
+				}
+				return fmt.Errorf(
+					"mismatch at path %v. Expected json: %v, but found: %v",
+					d.Path, d.NewValues, d.OldValues,
+				)
 			}
+
 		}
 	}
 
 	return nil
 }
 
-func (s *Step) AddAssertion(assert func(*Step) error) *Step {
-	s.Asserts = append(s.Asserts, assert)
-	return s
+func AssertByContains(i *Task) error {
+	for _, expected := range i.Expected.Contains {
+		if !strings.Contains(i.Actual.Output, expected) {
+			return fmt.Errorf("output does not contain expected substring: %q", expected)
+		}
+	}
+	return nil
 }
 
-func (s *Step) AddContains(contains ...string) *Step {
-	s.Expected.Contains = append(s.Expected.Contains, contains...)
-	return s
-}
-
-func (s *Step) AddEnv(env ...string) *Step {
-	s.Env = append(s.Env, env...)
-	return s
-}
-
-func (s *Step) AddArgs(args ...string) *Step {
-	s.Args = append(s.Args, args...)
-	return s
-}
-
-func (s *Step) AddSkipJsonNodes(skipJsonNodes ...string) *Step {
-	s.SkipJsonNodes = append(s.SkipJsonNodes, skipJsonNodes...)
-	return s
-}
-
-func (s *Step) AddExpected(expected Output) *Step {
-	s.Expected = expected
-	return s
-}
-
-func (s *Step) AddCommand(command string) *Step {
-	s.Command = command
-	return s
+func AssertByError(i *Task) error {
+	if i.Actual.Error != i.Expected.Error {
+		return fmt.Errorf("error mismatch: expected %q, got %q", i.Expected.Error, i.Actual.Error)
+	}
+	return nil
 }

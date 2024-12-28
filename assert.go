@@ -8,21 +8,21 @@ import (
 	jd "github.com/josephburnett/jd/lib"
 )
 
-func AssertByExitCode(i *Step) error {
+func AssertByExitCode(i *Task) error {
 	if i.Actual.ExitCode != i.Expected.ExitCode {
 		return fmt.Errorf("exit code mismatch: expected %d, got %d", i.Expected.ExitCode, i.Actual.ExitCode)
 	}
 	return nil
 }
 
-func AssertByOutputString(i *Step) error {
+func AssertByOutputString(i *Task) error {
 	if i.Actual.Output != i.Expected.Output {
 		return fmt.Errorf("output mismatch: expected %q, got %q", i.Expected.Output, i.Actual.Output)
 	}
 	return nil
 }
 
-func AssertByOutputJson(i *Step) error {
+func AssertByOutputJson(i *Task) error {
 	expectation, err := jd.ReadJsonString(i.Expected.Output)
 	if err != nil {
 		return errors.New("Failed to read expectation: " + err.Error())
@@ -55,7 +55,7 @@ func AssertByOutputJson(i *Step) error {
 	return nil
 }
 
-func AssertByContains(i *Step) error {
+func AssertByContains(i *Task) error {
 	for _, expected := range i.Expected.Contains {
 		if !strings.Contains(i.Actual.Output, expected) {
 			return fmt.Errorf("output does not contain expected substring: %q", expected)
@@ -64,7 +64,7 @@ func AssertByContains(i *Step) error {
 	return nil
 }
 
-func AssertByError(i *Step) error {
+func AssertByError(i *Task) error {
 	if i.Actual.Error != i.Expected.Error {
 		return fmt.Errorf("error mismatch: expected %q, got %q", i.Expected.Error, i.Actual.Error)
 	}
