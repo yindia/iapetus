@@ -60,7 +60,8 @@ func main() {
 
 func setupWorkflow() iapetus.Workflow {
 	return iapetus.Workflow{
-		Name: "Entire flow",
+		Name:     "Setup",
+		LogLevel: 1,
 		Steps: []iapetus.Task{
 			{
 				Name:    "Create Kind Cluster",
@@ -80,7 +81,8 @@ func setupWorkflow() iapetus.Workflow {
 
 func teardownWorkflow() iapetus.Workflow {
 	return iapetus.Workflow{
-		Name: "Entire flow",
+		Name:     "Cleanup",
+		LogLevel: 1,
 		Steps: []iapetus.Task{
 			{
 				Name:    "Delete Kind Cluster",
@@ -108,6 +110,7 @@ func getWorkflowCasesForKubernetes() iapetus.Workflow {
 			}
 			return nil
 		},
+		LogLevel: 1,
 		Steps: []iapetus.Task{
 			{
 				Name:    "kubectl-create-ns",

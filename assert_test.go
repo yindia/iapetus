@@ -10,8 +10,8 @@ func TestAssertByExitCode(t *testing.T) {
 		input   *Task
 		wantErr bool
 	}{
-		{"Matching Exit Codes", &Task{Actual: Output{0, "", "", []string{}}, Expected: Output{0, "", "", []string{}}}, false},
-		{"Mismatched Exit Codes", &Task{Actual: Output{1, "", "", []string{}}, Expected: Output{0, "", "", []string{}}}, true},
+		{"Matching Exit Codes", &Task{Actual: Output{0, "", "", []string{}, []string{}}, Expected: Output{0, "", "", []string{}, []string{}}}, false},
+		{"Mismatched Exit Codes", &Task{Actual: Output{1, "", "", []string{}, []string{}}, Expected: Output{0, "", "", []string{}, []string{}}}, true},
 	}
 
 	for _, tt := range tests {
@@ -31,12 +31,12 @@ func TestAssertByOutputString(t *testing.T) {
 		wantErr bool
 	}{
 		{"Matching Output Strings", &Task{
-			Actual:   Output{0, "output", "", []string{}},
-			Expected: Output{0, "output", "", []string{}},
+			Actual:   Output{0, "output", "", []string{}, []string{}},
+			Expected: Output{0, "output", "", []string{}, []string{}},
 		}, false},
 		{"Mismatched Output Strings", &Task{
-			Actual:   Output{0, "output1", "", []string{}},
-			Expected: Output{0, "output2", "", []string{}},
+			Actual:   Output{0, "output1", "", []string{}, []string{}},
+			Expected: Output{0, "output2", "", []string{}, []string{}},
 		}, true},
 	}
 
@@ -58,12 +58,12 @@ func TestAssertByOutputJson(t *testing.T) {
 		wantErr bool
 	}{
 		{"Matching JSON Outputs", &Task{
-			Actual:   Output{0, `{"key":"value"}`, "", []string{}},
-			Expected: Output{0, `{"key":"value"}`, "", []string{}},
+			Actual:   Output{0, `{"key":"value"}`, "", []string{}, []string{}},
+			Expected: Output{0, `{"key":"value"}`, "", []string{}, []string{}},
 		}, false},
 		{"Mismatched JSON Outputs", &Task{
-			Actual:   Output{0, `{"key":"value1"}`, "", []string{}},
-			Expected: Output{0, `{"key":"value2"}`, "", []string{}},
+			Actual:   Output{0, `{"key":"value1"}`, "", []string{}, []string{}},
+			Expected: Output{0, `{"key":"value2"}`, "", []string{}, []string{}},
 		}, false},
 	}
 
@@ -84,12 +84,12 @@ func TestAssertByError(t *testing.T) {
 		wantErr bool
 	}{
 		{"Matching Errors", &Task{
-			Actual:   Output{0, "", "error", []string{}},
-			Expected: Output{0, "", "error", []string{}},
+			Actual:   Output{0, "", "error", []string{}, []string{}},
+			Expected: Output{0, "", "error", []string{}, []string{}},
 		}, false},
 		{"Mismatched Errors", &Task{
-			Actual:   Output{0, "", "error1", []string{}},
-			Expected: Output{0, "", "error2", []string{}},
+			Actual:   Output{0, "", "error1", []string{}, []string{}},
+			Expected: Output{0, "", "error2", []string{}, []string{}},
 		}, true},
 	}
 

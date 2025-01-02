@@ -2,45 +2,82 @@ package iapetus
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/google/uuid"
 )
 
-// Define a custom error type for workflow errors
+// Package iapetus provides workflow orchestration capabilities
+
+// WorkflowError represents an error that occurred during workflow execution.
+// It contains context about which step failed and in which workflow.
 type WorkflowError struct {
-	StepName     string
+	// StepName is the name of the task that failed
+	StepName string
+	// WorkflowName is the identifier of the workflow where the error occurred
 	WorkflowName string
-	Err          error
+	// Err is the underlying error that caused the failure
+	Err error
 }
 
+// Error implements the error interface for WorkflowError.
 func (e *WorkflowError) Error() string {
 	return fmt.Sprintf("error in step '%s' of workflow '%s': %v", e.StepName, e.WorkflowName, e.Err)
 }
 
+// Workflow represents a sequence of tasks to be executed in order.
+// It provides hooks for pre and post-execution logic and maintains
+// an ordered list of tasks to be executed sequentially.
 type Workflow struct {
-	Name    string
-	PreRun  func(w *Workflow) error
-	PostRun func(w *Workflow) error
-	Steps   []Task
+	// Name identifies the workflow. If empty, a UUID will be generated at runtime
+	Name string // Name identifies the workflow
+	// PreRun is executed before any tasks. It can be used for workflow initialization
+	PreRun func(w *Workflow) error // PreRun is executed before any tasks
+	// PostRun is executed after all tasks complete successfully
+	PostRun func(w *Workflow) error // PostRun is executed after all tasks
+	// Steps contains the ordered list of tasks to execute
+	Steps []Task // Steps contains the ordered list of tasks to execute
+
+	LogLevel int
+	// logger handles workflow execution logging
+	logger Logger
 }
 
-func NewWorkflow(name string) *Workflow {
-	return &Workflow{Name: name}
+// NewWorkflow creates a new Workflow instance with the given name.
+// If name is empty, a UUID-based name will be generated during execution.
+func NewWorkflow(name string, level *LogLevel) *Workflow {
+	return &Workflow{
+		Name:   name,
+		logger: NewDefaultLogger(level),
+	}
 }
 
+// SetLogger allows users to configure a custom logger
+func (w *Workflow) SetLogger(level *LogLevel) *Workflow {
+	w.logger = NewDefaultLogger(level)
+	return w
+}
+
+// Run executes the workflow by running all tasks in sequence.
+// It handles pre-run and post-run hooks if defined.
+// Returns an error if any step fails.
 func (w *Workflow) Run() error {
-	log.Printf("Starting workflow: %s", w.Name)
+
+	if w.logger == nil {
+		logLevel := LogLevel(w.LogLevel)
+		w.SetLogger(&logLevel)
+	}
+	w.logger.Info("Starting workflow: %s", w.Name)
 
 	if w.Name == "" {
 		w.Name = "workflow-" + uuid.New().String()
-		log.Printf("Generated new workflow name: %s", w.Name)
+		w.logger.Debug("Generated new workflow name: %s", w.Name)
 	}
 
 	if w.PreRun != nil {
-		log.Println("Starting workflow Pre Run")
+		w.logger.Debug("Starting pre-run hook for workflow: %s", w.Name)
 		if err := w.PreRun(w); err != nil {
-			return fmt.Errorf("Failed pre run for the workflow %s got error %s "+w.Name, err.Error())
+			w.logger.Error("Pre-run hook failed for workflow %s: %v", w.Name, err)
+			return fmt.Errorf("pre-run hook failed for workflow %s: %v", w.Name, err)
 		}
 	}
 	for _, task := range w.Steps {
@@ -51,21 +88,25 @@ func (w *Workflow) Run() error {
 				WorkflowName: w.Name,
 				Err:          err,
 			}
-			log.Printf("Error: %v", wfErr)
+			w.logger.Error("Error: %v", wfErr)
 			return wfErr
 		}
 	}
 
 	if w.PostRun != nil {
-		log.Println("Starting workflow Post Run")
+		w.logger.Debug("Starting post-run hook for workflow: %s", w.Name)
 		if err := w.PostRun(w); err != nil {
-			return fmt.Errorf("Failed post run for the workflow %s got error %s "+w.Name, err.Error())
+			w.logger.Error("Post-run hook failed for workflow %s: %v", w.Name, err)
+			return fmt.Errorf("post-run hook failed for workflow %s: %v", w.Name, err)
 		}
 	}
-	log.Printf("Completed workflow: %s", w.Name)
+	w.logger.Info("Completed workflow: %s", w.Name)
 	return nil
 }
 
+// AddTask appends a new task to the workflow's sequence of steps.
+// Tasks are executed in the order they are added.
+// Returns the workflow to allow for method chaining.
 func (w *Workflow) AddTask(task Task) *Workflow {
 	w.Steps = append(w.Steps, task)
 	return w
