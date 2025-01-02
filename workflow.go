@@ -111,3 +111,13 @@ func (w *Workflow) AddTask(task Task) *Workflow {
 	w.Steps = append(w.Steps, task)
 	return w
 }
+
+func (w *Workflow) AddPreRun(p func(w *Workflow) error) *Workflow {
+	w.PreRun = p
+	return w
+}
+
+func (w *Workflow) AddPostRun(p func(w *Workflow) error) *Workflow {
+	w.PostRun = p
+	return w
+}
