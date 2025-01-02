@@ -42,9 +42,7 @@ func (l *DefaultLogger) Debug(format string, args ...interface{}) {
 }
 
 func (l *DefaultLogger) Info(format string, args ...interface{}) {
-	if l.level == INFO {
-		l.logger.Printf("[INFO] "+format, args...)
-	}
+	l.logger.Printf("[INFO] "+format, args...)
 }
 
 func (l *DefaultLogger) Error(format string, args ...interface{}) {

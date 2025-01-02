@@ -1,6 +1,7 @@
 package iapetus
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -25,6 +26,10 @@ type Task struct {
 	Asserts       []func(*Task) error // Custom validation functions
 	LogLevel      int
 	logger        Logger // Add this field
+	// PreRun is executed before any tasks. It can be used for task initialization
+	PreRun func(w *Task) error // PreRun is executed before any tasks
+	// PostRun is executed after all tasks complete successfully
+	PostRun func(w *Task) error // PostRun is executed after all tasks
 }
 
 // Output holds the execution results of a command, including its exit code,
@@ -54,6 +59,7 @@ func NewTask(name string, timeout time.Duration, level *LogLevel) *Task {
 // It captures the command output and runs all registered assertiont.
 // Returns an error if any assertion fails after all retry attemptt.
 func (t *Task) Run() error {
+
 	if t.Name == "" {
 		t.Name = "task-" + uuid.New().String()
 	}
@@ -61,24 +67,47 @@ func (t *Task) Run() error {
 		logLevel := LogLevel(t.LogLevel)
 		t.SetLogger(&logLevel)
 	}
+	if t.Timeout == 0*time.Second {
+		t.Timeout = 100 * time.Second
+	}
 	if t.Retries == 0 {
 		t.Retries = 1
 	}
 	t.logger.Info("Running task: %s", t.Name)
 
+	if t.PreRun != nil {
+		t.logger.Debug("Starting pre-run hook for workflow: %s", t.Name)
+		if err := t.PreRun(t); err != nil {
+			t.logger.Error("Pre-run hook failed for workflow %s: %v", t.Name, err)
+			return fmt.Errorf("pre-run hook failed for workflow %s: %v", t.Name, err)
+		}
+	}
 	for attempt := 1; attempt <= t.Retries; attempt++ {
 		t.logger.Debug("Attempt %d of %d for task: %s", attempt, t.Retries, t.Name)
 
 		cmd := exec.Command(t.Command, t.Args...)
 		cmd.Env = append(os.Environ(), t.Env...)
 
-		t.logger.Debug("Command:  %s", t.Command+" "+strings.Join(t.Args, " "))
+		// Create a context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), t.Timeout)
+		defer cancel()
+		cmd.WaitDelay = t.Timeout
+
+		// Set the command to use our context
+		cmd = exec.CommandContext(ctx, t.Command, t.Args...)
+		cmd.Env = append(os.Environ(), t.Env...)
+
+		t.logger.Debug("Command: %s", t.Command+" "+strings.Join(t.Args, " "))
 		output, err := cmd.CombinedOutput()
 		t.Actual.ExitCode = getExitCode(err)
 		t.Actual.Output = string(output)
 
 		if err != nil {
 			t.Actual.Error = err.Error()
+			if ctx.Err() == context.DeadlineExceeded {
+				t.logger.Error("Task %s timed out after %v", t.Name, t.Timeout)
+				return fmt.Errorf("task %s timed out after %v", t.Name, t.Timeout)
+			}
 			t.logger.Error("Error executing task %s: %v", t.Name, err)
 		}
 
@@ -97,6 +126,13 @@ func (t *Task) Run() error {
 		break
 	}
 
+	if t.PostRun != nil {
+		t.logger.Debug("Starting post-run hook for workflow: %s", t.Name)
+		if err := t.PostRun(t); err != nil {
+			t.logger.Error("Post-run hook failed for workflow %s: %v", t.Name, err)
+			return fmt.Errorf("post-run hook failed for workflow %s: %v", t.Name, err)
+		}
+	}
 	return nil
 }
 

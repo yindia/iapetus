@@ -68,10 +68,10 @@ if err != nil {
 A `Workflow` consists of multiple steps that are executed in sequence. If any step fails its assertions, the workflow stops.
 
 ```go
-workflow := iapetus.Workflow{
+	workflow := iapetus.Workflow{
 		Name: "Entire flow",
 		PreRun: func(w *iapetus.Workflow) error {
-			//# Do sonething
+			//# Do sonething like setup kind cluster
 			return nil
 		},
 		LogLevel: 1,
@@ -137,12 +137,10 @@ workflow := iapetus.Workflow{
 				},
 			},
 		},
-}
-
-err := workflow.Run()
-if err != nil {
-    log.Fatalf("Failed to run workflow: %v", err)
-}
+	}	
+	if err := workflow.Run(); err != nil {
+		log.Fatalf("Failed to run workflow: %v", err)
+	}
 ```
 
 ### Builder Pattern
