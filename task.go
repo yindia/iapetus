@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -69,7 +70,7 @@ func (s *Task) Run() error {
 					time.Sleep(1 * time.Second)
 					continue
 				}
-				fmt.Println("Command ", s.Command, strings.join(s.Args, " "))
+				fmt.Println("Command ", s.Command, strings.Join(s.Args, " "))
 				return fmt.Errorf("assertion failed for task %s: %w", s.Name, err)
 			}
 		}

@@ -3,6 +3,7 @@ package iapetus
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	jd "github.com/josephburnett/jd/lib"
@@ -67,6 +68,19 @@ func AssertByContains(i *Task) error {
 func AssertByError(i *Task) error {
 	if i.Actual.Error != i.Expected.Error {
 		return fmt.Errorf("error mismatch: expected %q, got %q", i.Expected.Error, i.Actual.Error)
+	}
+	return nil
+}
+
+func AssertByRegexp(i *Task) error {
+	for _, pattern := range i.Expected.Patterns {
+		matched, err := regexp.MatchString(pattern, i.Actual.Output)
+		if err != nil {
+			return fmt.Errorf("invalid regexp pattern %q: %v", pattern, err)
+		}
+		if !matched {
+			return fmt.Errorf("output does not match pattern: %q", pattern)
+		}
 	}
 	return nil
 }

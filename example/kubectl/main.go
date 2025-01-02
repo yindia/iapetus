@@ -8,7 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 
 	"github.com/yindia/iapetus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 const ns = "test"
@@ -38,11 +38,12 @@ func assertNsLength(s *iapetus.Task) error {
 }
 
 func main() {
-	setupWorkflowSpec := setupWorkflow()
-	if err := setupWorkflowSpec.Run(); err != nil {
+	workflow := getWorkflowCasesForKubernetes()
+	if err := workflow.Run(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
 	tests := getTestCasesForKubernetes()
 	for _, test := range tests {
 		if err := test.Run(); err != nil {
@@ -50,12 +51,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	workflow := getWorkflowCasesForKubernetes()
-	if err := workflow.Run(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
 	teardownWorkflow := teardownWorkflow()
 	if err := teardownWorkflow.Run(); err != nil {
 		fmt.Println(err)
@@ -106,6 +101,13 @@ func teardownWorkflow() iapetus.Workflow {
 func getWorkflowCasesForKubernetes() iapetus.Workflow {
 	return iapetus.Workflow{
 		Name: "Entire flow",
+		PreRun: func(w *iapetus.Workflow) error {
+			setupWorkflowSpec := setupWorkflow()
+			if err := setupWorkflowSpec.Run(); err != nil {
+				return err
+			}
+			return nil
+		},
 		Steps: []iapetus.Task{
 			{
 				Name:    "kubectl-create-ns",

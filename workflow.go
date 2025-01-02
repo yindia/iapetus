@@ -19,8 +19,10 @@ func (e *WorkflowError) Error() string {
 }
 
 type Workflow struct {
-	Name  string
-	Steps []Task
+	Name    string
+	PreRun  func(w *Workflow) error
+	PostRun func(w *Workflow) error
+	Steps   []Task
 }
 
 func NewWorkflow(name string) *Workflow {
@@ -35,8 +37,13 @@ func (w *Workflow) Run() error {
 		log.Printf("Generated new workflow name: %s", w.Name)
 	}
 
+	if w.PreRun != nil {
+		log.Println("Starting workflow Pre Run")
+		if err := w.PreRun(w); err != nil {
+			return fmt.Errorf("Failed pre run for the workflow %s got error %s "+w.Name, err.Error())
+		}
+	}
 	for _, task := range w.Steps {
-		log.Printf("Running step: %s", task.Name)
 		if err := task.Run(); err != nil {
 			// Wrap the error with additional context
 			wfErr := &WorkflowError{
@@ -49,6 +56,12 @@ func (w *Workflow) Run() error {
 		}
 	}
 
+	if w.PostRun != nil {
+		log.Println("Starting workflow Post Run")
+		if err := w.PostRun(w); err != nil {
+			return fmt.Errorf("Failed post run for the workflow %s got error %s "+w.Name, err.Error())
+		}
+	}
 	log.Printf("Completed workflow: %s", w.Name)
 	return nil
 }
