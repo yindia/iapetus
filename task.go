@@ -82,48 +82,21 @@ func (t *Task) Run() error {
 			return fmt.Errorf("pre-run hook failed for workflow %s: %v", t.Name, err)
 		}
 	}
+
+	var lastErr error
 	for attempt := 1; attempt <= t.Retries; attempt++ {
 		t.logger.Debug("Attempt %d of %d for task: %s", attempt, t.Retries, t.Name)
 
-		cmd := exec.Command(t.Command, t.Args...)
-		cmd.Env = append(os.Environ(), t.Env...)
-
-		// Create a context with timeout
-		ctx, cancel := context.WithTimeout(context.Background(), t.Timeout)
-		defer cancel()
-		cmd.WaitDelay = t.Timeout
-
-		// Set the command to use our context
-		cmd = exec.CommandContext(ctx, t.Command, t.Args...)
-		cmd.Env = append(os.Environ(), t.Env...)
-
-		t.logger.Debug("Command: %s", t.Command+" "+strings.Join(t.Args, " "))
-		output, err := cmd.CombinedOutput()
-		t.Actual.ExitCode = getExitCode(err)
-		t.Actual.Output = string(output)
-
-		if err != nil {
-			t.Actual.Error = err.Error()
-			if ctx.Err() == context.DeadlineExceeded {
-				t.logger.Error("Task %s timed out after %v", t.Name, t.Timeout)
-				return fmt.Errorf("task %s timed out after %v", t.Name, t.Timeout)
+		if err := t.executeCommand(); err != nil {
+			lastErr = err
+			if attempt < t.Retries {
+				t.logger.Debug("Retrying task %s after failure", t.Name)
+				time.Sleep(1 * time.Second)
+				continue
 			}
-			t.logger.Error("Error executing task %s: %v", t.Name, err)
+			return fmt.Errorf("task %s failed after %d attempts: %w", t.Name, t.Retries, err)
 		}
-
-		for _, assert := range t.Asserts {
-			if err := assert(t); err != nil {
-				t.logger.Error("Assertion failed for task %s: %v", t.Name, err)
-				if attempt < t.Retries {
-					t.logger.Debug("Retrying task %s after failure", t.Name)
-					time.Sleep(1 * time.Second)
-					continue
-				}
-				fmt.Println("Command ", t.Command, strings.Join(t.Args, " "))
-				return fmt.Errorf("assertion failed for task %s: %w", t.Name, err)
-			}
-		}
-		break
+		return nil // Success, exit retry loop
 	}
 
 	if t.PostRun != nil {
@@ -133,6 +106,39 @@ func (t *Task) Run() error {
 			return fmt.Errorf("post-run hook failed for workflow %s: %v", t.Name, err)
 		}
 	}
+	return lastErr
+}
+
+// executeCommand handles a single execution attempt
+func (t *Task) executeCommand() error {
+	ctx, cancel := context.WithTimeout(context.Background(), t.Timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, t.Command, t.Args...)
+	cmd.Env = append(os.Environ(), t.Env...)
+
+	t.logger.Debug("Command: %s", t.Command+" "+strings.Join(t.Args, " "))
+	output, err := cmd.CombinedOutput()
+	t.Actual.Output = string(output)
+	t.Actual.ExitCode = getExitCode(err)
+
+	if err != nil {
+		t.Actual.Error = err.Error()
+		if ctx.Err() == context.DeadlineExceeded {
+			t.logger.Error("Task %s timed out after %v", t.Name, t.Timeout)
+			return fmt.Errorf("task %s timed out after %v", t.Name, t.Timeout)
+		}
+		t.logger.Error("Error executing task %s: %v", t.Name, err)
+	}
+
+	// Run assertions
+	for _, assert := range t.Asserts {
+		if err := assert(t); err != nil {
+			t.logger.Error("Assertion failed for task %s: %v", t.Name, err)
+			return err
+		}
+	}
+
 	return nil
 }
 
