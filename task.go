@@ -69,6 +69,7 @@ func (s *Task) Run() error {
 					time.Sleep(1 * time.Second)
 					continue
 				}
+				fmt.Println("Command ", s.Command, strings.join(s.Args, " "))
 				return fmt.Errorf("assertion failed for task %s: %w", s.Name, err)
 			}
 		}

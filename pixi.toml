@@ -3,7 +3,7 @@ authors = ["yindia <evalsocket@gmail.com>"]
 channels = ["conda-forge"]
 description = "Add a short description here"
 name = "iapetus"
-platforms = ["osx-arm64"]
+platforms = ["osx-arm64", "osx-64"]
 version = "0.1.0"
 
 [tasks]
