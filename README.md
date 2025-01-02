@@ -1,23 +1,22 @@
-# iapetus
+# iapetus 🚀
 
 A Go package for executing and validating command-line workflows with built-in assertions and error handling.
 
-## Overview
+## Overview 📋
 
 The `iapetus` package provides:
-- Structured workflow execution with sequential steps
-- Built-in and custom assertions for validating outputs
-- Retry mechanisms for flaky operations
-- Fluent builder pattern for readable workflow construction
+- 📦 Structured workflow execution with sequential steps
+- ✅ Built-in and custom assertions for validating outputs
+- 🔄 Retry mechanisms for flaky operations
+- 🏗️ Fluent builder pattern for readable workflow construction
 
-
-## Installation
+## Installation 💻
 
 ```go
 go get github.com/yindia/iapetus
 ```
 
-## Usage
+## Usage 🛠️
 
 ### Quick Start
 
@@ -209,9 +208,9 @@ step.AddAssertion(func(i *iapetus.Step) error {
 })
 ```
 
-### Key Features
+### Key Features ⭐
 
-#### Retries
+#### Retries 🔄
 Tasks can be configured with retries for handling transient failures:
 
 ```go
@@ -220,7 +219,7 @@ task := iapetus.NewTask("flaky-operation", timeout, 0).
     SetRetries(3)  // Will retry up to 3 times
 ```
 
-#### Built-in Assertions
+#### Built-in Assertions ✅
 ```go
 task.AddAssertion(iapetus.AssertByExitCode).        // Check exit code
     AddAssertion(iapetus.AssertByContains("Ready")) // Check output contains
@@ -234,7 +233,7 @@ Available assertions:
 - `AssertByError`: Error message validation
 - `AssertByRegexp`: Regular expression matching
 
-#### Custom Assertions
+#### Custom Assertions 🎯
 ```go
 task.AddAssertion(func(t *iapetus.Task) error {
     if !strings.Contains(t.Actual.Output, "success") {
@@ -244,10 +243,10 @@ task.AddAssertion(func(t *iapetus.Task) error {
 })
 ```
 
-## Contributing
+## Contributing 👥
 
 Contributions to the `iapetus` package are welcome. Please submit issues or pull requests via the project's repository.
 
-## License
+## License 📄
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

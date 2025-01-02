@@ -145,4 +145,5 @@ func (t *Task) SetLogger(level *LogLevel) *Task {
 
 func (t *Task) SetRetries(retry int) *Task {
 	t.Retries = retry
+	return t
 }
