@@ -20,6 +20,7 @@ type Task struct {
 	Args          []string            // Command line arguments
 	Timeout       time.Duration       // Maximum execution time
 	Env           []string            // Additional environment variables
+	WorkingDir    string              // Working dir
 	Expected      Output              // Expected command output and behavior
 	Actual        Output              // Actual command output and results
 	SkipJsonNodes []string            // JSON nodes to ignore in comparisons
@@ -116,6 +117,9 @@ func (t *Task) executeCommand() error {
 
 	cmd := exec.CommandContext(ctx, t.Command, t.Args...)
 	cmd.Env = append(os.Environ(), t.Env...)
+	if t.WorkingDir != "" {
+		cmd.Dir = t.WorkingDir
+	}
 
 	t.logger.Debug("Command: %s", t.Command+" "+strings.Join(t.Args, " "))
 	output, err := cmd.CombinedOutput()
