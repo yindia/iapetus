@@ -39,21 +39,15 @@ task := &iapetus.Task{
     Name:    "verify-service",
     Command: "curl",
     Args:    []string{"-f", "http://localhost:8080"},
-    // You can still use legacy assertion functions for backward compatibility:
     Asserts: []func(*iapetus.Task) error{
-        iapetus.AssertByExitCode, // legacy, uses Expected.ExitCode
-        iapetus.AssertByContains, // legacy, uses Expected.Contains
+        iapetus.AssertExitCode(0),
+        iapetus.AssertOutputContains("Success"),
     },
-    // But the new style is preferred:
-    // Asserts: []func(*iapetus.Task) error{
-    //     iapetus.AssertExitCode(0),
-    //     iapetus.AssertOutputContains("Success"),
-    // },
 }
 ```
 
 - **Preferred:** Use the new assertion functions that accept expected values directly.
-- **Legacy:** The old assertion functions are still available for backward compatibility.
+- No need to set `Expected` fields for assertions.
 
 ### 2. Builder/Fluent API Style
 

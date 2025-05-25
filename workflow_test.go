@@ -24,11 +24,10 @@ func TestWorkflowRun(t *testing.T) {
 			workflow: Workflow{
 				Steps: []Task{
 					{
-						Name:     "step1",
-						Command:  "echo",
-						Args:     []string{"hello"},
-						Expected: Output{ExitCode: 0, Output: "hello\n"},
-						Asserts:  []func(*Task) error{AssertByExitCode, AssertByOutputString},
+						Name:    "step1",
+						Command: "echo",
+						Args:    []string{"hello"},
+						Asserts: []func(*Task) error{AssertExitCode(0), AssertOutputEquals("hello\n")},
 					},
 				},
 				logger: zap.NewNop(),
@@ -41,11 +40,10 @@ func TestWorkflowRun(t *testing.T) {
 			workflow: Workflow{
 				Steps: []Task{
 					{
-						Name:     "step1",
-						Command:  "echo",
-						Args:     []string{"hello"},
-						Expected: Output{Output: "world\n"},
-						Asserts:  []func(*Task) error{AssertByOutputString},
+						Name:    "step1",
+						Command: "echo",
+						Args:    []string{"hello"},
+						Asserts: []func(*Task) error{AssertOutputEquals("world\n")},
 					},
 				},
 				logger: zap.NewNop(),
@@ -68,9 +66,9 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 	t.Run("linear chain", func(t *testing.T) {
 		wf := Workflow{
 			Steps: []Task{
-				{Name: "a", Command: "echo", Args: []string{"1"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "b", Command: "echo", Args: []string{"2"}, Depends: []string{"a"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "c", Command: "echo", Args: []string{"3"}, Depends: []string{"b"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
+				{Name: "a", Command: "echo", Args: []string{"1"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "b", Command: "echo", Args: []string{"2"}, Depends: []string{"a"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "c", Command: "echo", Args: []string{"3"}, Depends: []string{"b"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
 			},
 			logger: zap.NewNop(),
 		}
@@ -83,10 +81,10 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 	t.Run("diamond dependency", func(t *testing.T) {
 		wf := Workflow{
 			Steps: []Task{
-				{Name: "a", Command: "echo", Args: []string{"A"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "b", Command: "echo", Args: []string{"B"}, Depends: []string{"a"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "c", Command: "echo", Args: []string{"C"}, Depends: []string{"a"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "d", Command: "echo", Args: []string{"D"}, Depends: []string{"b", "c"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
+				{Name: "a", Command: "echo", Args: []string{"A"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "b", Command: "echo", Args: []string{"B"}, Depends: []string{"a"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "c", Command: "echo", Args: []string{"C"}, Depends: []string{"a"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "d", Command: "echo", Args: []string{"D"}, Depends: []string{"b", "c"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
 			},
 			logger: zap.NewNop(),
 		}
@@ -99,12 +97,12 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 	t.Run("multiple roots and leaves", func(t *testing.T) {
 		wf := Workflow{
 			Steps: []Task{
-				{Name: "root1", Command: "echo", Args: []string{"R1"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "root2", Command: "echo", Args: []string{"R2"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "mid1", Command: "echo", Args: []string{"M1"}, Depends: []string{"root1"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "mid2", Command: "echo", Args: []string{"M2"}, Depends: []string{"root2"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "leaf1", Command: "echo", Args: []string{"L1"}, Depends: []string{"mid1"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "leaf2", Command: "echo", Args: []string{"L2"}, Depends: []string{"mid2"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
+				{Name: "root1", Command: "echo", Args: []string{"R1"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "root2", Command: "echo", Args: []string{"R2"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "mid1", Command: "echo", Args: []string{"M1"}, Depends: []string{"root1"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "mid2", Command: "echo", Args: []string{"M2"}, Depends: []string{"root2"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "leaf1", Command: "echo", Args: []string{"L1"}, Depends: []string{"mid1"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "leaf2", Command: "echo", Args: []string{"L2"}, Depends: []string{"mid2"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
 			},
 			logger: zap.NewNop(),
 		}
@@ -117,9 +115,9 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 	t.Run("cycle detection", func(t *testing.T) {
 		wf := Workflow{
 			Steps: []Task{
-				{Name: "a", Command: "echo", Args: []string{"A"}, Depends: []string{"c"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "b", Command: "echo", Args: []string{"B"}, Depends: []string{"a"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "c", Command: "echo", Args: []string{"C"}, Depends: []string{"b"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
+				{Name: "a", Command: "echo", Args: []string{"A"}, Depends: []string{"c"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "b", Command: "echo", Args: []string{"B"}, Depends: []string{"a"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "c", Command: "echo", Args: []string{"C"}, Depends: []string{"b"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
 			},
 			logger: zap.NewNop(),
 		}
@@ -132,7 +130,7 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 	t.Run("missing dependency", func(t *testing.T) {
 		wf := Workflow{
 			Steps: []Task{
-				{Name: "a", Command: "echo", Args: []string{"A"}, Depends: []string{"notfound"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
+				{Name: "a", Command: "echo", Args: []string{"A"}, Depends: []string{"notfound"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
 			},
 			logger: zap.NewNop(),
 		}
@@ -145,7 +143,7 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 	t.Run("self dependency", func(t *testing.T) {
 		wf := Workflow{
 			Steps: []Task{
-				{Name: "a", Command: "echo", Args: []string{"A"}, Depends: []string{"a"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
+				{Name: "a", Command: "echo", Args: []string{"A"}, Depends: []string{"a"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
 			},
 			logger: zap.NewNop(),
 		}
@@ -158,8 +156,8 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 	t.Run("parallel roots", func(t *testing.T) {
 		wf := Workflow{
 			Steps: []Task{
-				{Name: "a", Command: "echo", Args: []string{"A"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "b", Command: "echo", Args: []string{"B"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
+				{Name: "a", Command: "echo", Args: []string{"A"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "b", Command: "echo", Args: []string{"B"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
 			},
 			logger: zap.NewNop(),
 		}
@@ -172,9 +170,9 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 	t.Run("multiple dependencies", func(t *testing.T) {
 		wf := Workflow{
 			Steps: []Task{
-				{Name: "a", Command: "echo", Args: []string{"A"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "b", Command: "echo", Args: []string{"B"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "c", Command: "echo", Args: []string{"C"}, Depends: []string{"a", "b"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
+				{Name: "a", Command: "echo", Args: []string{"A"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "b", Command: "echo", Args: []string{"B"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "c", Command: "echo", Args: []string{"C"}, Depends: []string{"a", "b"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
 			},
 			logger: zap.NewNop(),
 		}
@@ -191,7 +189,7 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 			PreRun:  func(w *Workflow) error { preRunCalled = true; return nil },
 			PostRun: func(w *Workflow) error { postRunCalled = true; return nil },
 			Steps: []Task{
-				{Name: "a", Command: "echo", Args: []string{"A"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
+				{Name: "a", Command: "echo", Args: []string{"A"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
 			},
 			logger: zap.NewNop(),
 		}
@@ -211,7 +209,7 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 		wf := Workflow{
 			PreRun: func(w *Workflow) error { return exec.ErrNotFound },
 			Steps: []Task{
-				{Name: "a", Command: "echo", Args: []string{"A"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
+				{Name: "a", Command: "echo", Args: []string{"A"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
 			},
 			logger: zap.NewNop(),
 		}
@@ -225,7 +223,7 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 		wf := Workflow{
 			PostRun: func(w *Workflow) error { return exec.ErrNotFound },
 			Steps: []Task{
-				{Name: "a", Command: "echo", Args: []string{"A"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
+				{Name: "a", Command: "echo", Args: []string{"A"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
 			},
 			logger: zap.NewNop(),
 		}
@@ -248,8 +246,8 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 	t.Run("duplicate task names", func(t *testing.T) {
 		wf := Workflow{
 			Steps: []Task{
-				{Name: "a", Command: "echo", Args: []string{"A"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
-				{Name: "a", Command: "echo", Args: []string{"A2"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
+				{Name: "a", Command: "echo", Args: []string{"A"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
+				{Name: "a", Command: "echo", Args: []string{"A2"}, Asserts: []func(*Task) error{AssertExitCode(0)}},
 			},
 			logger: zap.NewNop(),
 		}
@@ -262,7 +260,7 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 	t.Run("custom assertion fails", func(t *testing.T) {
 		wf := Workflow{
 			Steps: []Task{
-				{Name: "a", Command: "echo", Args: []string{"A"}, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{
+				{Name: "a", Command: "echo", Args: []string{"A"}, Asserts: []func(*Task) error{
 					func(t *Task) error { return exec.ErrNotFound },
 				}},
 			},
@@ -277,7 +275,7 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 	t.Run("step with env and timeout", func(t *testing.T) {
 		wf := Workflow{
 			Steps: []Task{
-				{Name: "a", Command: "sh", Args: []string{"-c", "sleep 0.1; echo $FOO"}, Env: []string{"FOO=bar"}, Timeout: 1 * time.Second, Expected: Output{ExitCode: 0}, Asserts: []func(*Task) error{AssertByExitCode}},
+				{Name: "a", Command: "sh", Args: []string{"-c", "sleep 0.1; echo $FOO"}, Env: []string{"FOO=bar"}, Timeout: 1 * time.Second, Asserts: []func(*Task) error{AssertExitCode(0)}},
 			},
 			logger: zap.NewNop(),
 		}
@@ -305,11 +303,10 @@ func TestWorkflow_PropertyBased(t *testing.T) {
 				}
 			}
 			steps[i] = Task{
-				Name:     names[i],
-				Command:  "true",
-				Depends:  deps,
-				Asserts:  []func(*Task) error{AssertByExitCode},
-				Expected: Output{ExitCode: 0},
+				Name:    names[i],
+				Command: "true",
+				Depends: deps,
+				Asserts: []func(*Task) error{AssertExitCode(0)},
 			}
 		}
 		wf := Workflow{Steps: steps, logger: zap.NewNop()}

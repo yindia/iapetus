@@ -9,6 +9,9 @@ func TestIntegrationTest_Run(t *testing.T) {
 	test := &Task{
 		Command: "echo",
 		Args:    []string{"Hello, World!"},
+		Asserts: []func(*Task) error{
+			AssertOutputEquals("Hello, World!\n"),
+		},
 	}
 
 	err := test.Run()
@@ -54,12 +57,8 @@ func TestIntegrationTest_AddMultipleAssertions(t *testing.T) {
 func TestIntegrationTest_RunCommandError(t *testing.T) {
 	test := &Task{
 		Command: "invalid_command",
-
-		Expected: Output{
-			ExitCode: 1,
-		},
 		Asserts: []func(*Task) error{
-			AssertByExitCode,
+			AssertExitCode(1),
 		},
 	}
 
