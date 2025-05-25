@@ -4,26 +4,145 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-
-	appsv1 "k8s.io/api/apps/v1"
+	"time"
 
 	"github.com/yindia/iapetus"
+	"go.uber.org/zap"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 )
 
-const ns = "test"
+const nsA = "test-a"
+const nsB = "test-b"
 
 var TASK_CREATE_KIND_CLUSTER = iapetus.Task{
 	Name:    "Create Kind Cluster",
 	Command: "kind",
 	Args:    []string{"create", "cluster"},
 	Env:     []string{},
-	Expected: iapetus.Output{
-		ExitCode: 0,
-	},
 	Asserts: []func(*iapetus.Task) error{
-		iapetus.AssertByExitCode,
+		iapetus.AssertExitCode(0),
 	},
+}
+
+var TASK_CREATE_NS_A = iapetus.Task{
+	Name:    "Create Namespace A",
+	Command: "kubectl",
+	Args:    []string{"create", "ns", nsA},
+	Env:     []string{},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+	},
+	Depends: []string{"Create Kind Cluster"},
+}
+
+var TASK_CREATE_NS_B = iapetus.Task{
+	Name:    "Create Namespace B",
+	Command: "kubectl",
+	Args:    []string{"create", "ns", nsB},
+	Env:     []string{},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+	},
+	Depends: []string{"Create Kind Cluster"},
+}
+
+var TASK_DEPLOY_NGINX_A = iapetus.Task{
+	Name:    "Deploy Nginx in A",
+	Command: "kubectl",
+	Args:    []string{"create", "deployment", "nginx-a", "--image", "nginx", "-n", nsA},
+	Env:     []string{},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+	},
+	Depends: []string{"Create Namespace A"},
+}
+
+var TASK_DEPLOY_NGINX_B = iapetus.Task{
+	Name:    "Deploy Nginx in B",
+	Command: "kubectl",
+	Args:    []string{"create", "deployment", "nginx-b", "--image", "nginx", "-n", nsB},
+	Env:     []string{},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+	},
+	Depends: []string{"Create Namespace B"},
+}
+
+var TASK_GET_PODS_A = iapetus.Task{
+	Name:    "Get Pods in A",
+	Command: "kubectl",
+	Args:    []string{"get", "pods", "-n", nsA, "-o", "json"},
+	Env:     []string{},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+		AssertPodsExist,
+	},
+	Depends: []string{"Deploy Nginx in A"},
+	PreRun: func(t *iapetus.Task) error {
+		time.Sleep(5 * time.Second) // Wait for pods to be created
+		return nil
+	},
+}
+
+var TASK_GET_PODS_B = iapetus.Task{
+	Name:    "Get Pods in B",
+	Command: "kubectl",
+	Args:    []string{"get", "pods", "-n", nsB, "-o", "json"},
+	Env:     []string{},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+		AssertPodsExist,
+	},
+	Depends: []string{"Deploy Nginx in B"},
+	PreRun: func(t *iapetus.Task) error {
+		time.Sleep(5 * time.Second) // Wait for pods to be created
+		return nil
+	},
+}
+
+var TASK_DELETE_DEPLOYMENT_A = iapetus.Task{
+	Name:    "Delete Deployment A",
+	Command: "kubectl",
+	Args:    []string{"delete", "deployment", "nginx-a", "-n", nsA},
+	Env:     []string{},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+	},
+	Depends: []string{"Get Pods in A"},
+}
+
+var TASK_DELETE_DEPLOYMENT_B = iapetus.Task{
+	Name:    "Delete Deployment B",
+	Command: "kubectl",
+	Args:    []string{"delete", "deployment", "nginx-b", "-n", nsB},
+	Env:     []string{},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+	},
+	Depends: []string{"Get Pods in B"},
+}
+
+var TASK_DELETE_NS_A = iapetus.Task{
+	Name:    "Delete Namespace A",
+	Command: "kubectl",
+	Args:    []string{"delete", "ns", nsA},
+	Env:     []string{},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+	},
+	Depends: []string{"Delete Deployment A"},
+}
+
+var TASK_DELETE_NS_B = iapetus.Task{
+	Name:    "Delete Namespace B",
+	Command: "kubectl",
+	Args:    []string{"delete", "ns", nsB},
+	Env:     []string{},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+	},
+	Depends: []string{"Delete Deployment B"},
 }
 
 var TASK_DELETE_KIND_CLUSTER = iapetus.Task{
@@ -31,213 +150,174 @@ var TASK_DELETE_KIND_CLUSTER = iapetus.Task{
 	Command: "kind",
 	Args:    []string{"delete", "cluster"},
 	Env:     []string{},
-	Expected: iapetus.Output{
-		ExitCode: 0,
-	},
 	Asserts: []func(*iapetus.Task) error{
-		iapetus.AssertByExitCode,
+		iapetus.AssertExitCode(0),
 	},
+	Depends: []string{"Delete Namespace A", "Delete Namespace B"},
 }
 
-var TASK_CREATE_NGINX_DEPLOYMENT = iapetus.Task{
-	Name:    "kubectl-create-deployment",
-	Command: "kubectl",
-	Args:    []string{"create", "deployment", "test", "--image", "nginx", "--replicas", "30", "-n", ns},
-	Env:     []string{},
-	Expected: iapetus.Output{
-		ExitCode: 0,
-	},
-	Asserts: []func(*iapetus.Task) error{
-		iapetus.AssertByExitCode,
-	},
-}
-
-var TASK_DELETE_NGINX_DEPLOYMENT = iapetus.Task{
-	Name:    "kubectl-delete-deployment",
-	Command: "kubectl",
-	Args:    []string{"delete", "deployment", "test", "-n", ns},
-	Env:     []string{},
-	Expected: iapetus.Output{
-		ExitCode: 0,
-	},
-	Asserts: []func(*iapetus.Task) error{
-		iapetus.AssertByExitCode,
-	},
-}
-
-var TASK_DELETE_NS = iapetus.Task{
-	Name:    "kubectl-delete-ns",
-	Command: "kubectl",
-	Args:    []string{"delete", "ns", ns},
-	Env:     []string{},
-	Expected: iapetus.Output{
-		ExitCode: 0,
-	},
-}
-
-var TASK_CREATE_NS = iapetus.Task{
-	Name:    "kubectl-create-ns",
-	Command: "kubectl",
-	Args:    []string{"create", "ns", ns},
-	Env:     []string{},
-	Expected: iapetus.Output{
-		ExitCode: 0,
-	},
-	Asserts: []func(*iapetus.Task) error{
-		iapetus.AssertByExitCode,
-	},
-}
-
-func AssertByCustomDeploymentCheck(s *iapetus.Task) error {
-	deployment := &appsv1.DeploymentList{}
-	err := json.Unmarshal([]byte(s.Actual.Output), &deployment)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal deployment specs: %w", err)
+// Custom assertion: check namespace exists in output
+func AssertNamespaceExists(ns string) func(*iapetus.Task) error {
+	return func(t *iapetus.Task) error {
+		if !json.Valid([]byte(t.Actual.Output)) {
+			return fmt.Errorf("output is not valid JSON")
+		}
+		var nsObj v1.Namespace
+		if err := json.Unmarshal([]byte(t.Actual.Output), &nsObj); err != nil {
+			return fmt.Errorf("failed to unmarshal namespace: %w", err)
+		}
+		if nsObj.Name != ns {
+			return fmt.Errorf("namespace name mismatch: expected %s, got %s", ns, nsObj.Name)
+		}
+		return nil
 	}
-	if len(deployment.Items) == 1 {
-		return fmt.Errorf("deployment length should be 1")
-	}
-	for _, item := range deployment.Items {
-		if item.Name == "test" {
-			for _, container := range item.Spec.Template.Spec.Containers {
-				if container.Image != "nginx" {
-					return fmt.Errorf("container image should be nginx")
-				}
-			}
-			if item.Status.Replicas != *item.Spec.Replicas {
-				return fmt.Errorf("deployment replicas do not match desired state")
+}
+
+// Custom assertion: check deployment exists in output
+func AssertDeploymentExists(depName string) func(*iapetus.Task) error {
+	return func(t *iapetus.Task) error {
+		if !json.Valid([]byte(t.Actual.Output)) {
+			return fmt.Errorf("output is not valid JSON")
+		}
+		var depList appsv1.DeploymentList
+		if err := json.Unmarshal([]byte(t.Actual.Output), &depList); err != nil {
+			return fmt.Errorf("failed to unmarshal deployment list: %w", err)
+		}
+		for _, dep := range depList.Items {
+			if dep.Name == depName {
+				return nil
 			}
 		}
+		return fmt.Errorf("deployment %s not found", depName)
 	}
-	return nil
 }
 
-func AssertByPodsCount(s *iapetus.Task) error {
+// Custom assertion: check deployment is deleted (no deployments)
+func AssertNoDeployments() func(*iapetus.Task) error {
+	return func(t *iapetus.Task) error {
+		if !json.Valid([]byte(t.Actual.Output)) {
+			return fmt.Errorf("output is not valid JSON")
+		}
+		var depList appsv1.DeploymentList
+		if err := json.Unmarshal([]byte(t.Actual.Output), &depList); err != nil {
+			return fmt.Errorf("failed to unmarshal deployment list: %w", err)
+		}
+		if len(depList.Items) != 0 {
+			return fmt.Errorf("expected no deployments, found %d", len(depList.Items))
+		}
+		return nil
+	}
+}
+
+// Additional tasks for advanced assertions and dependencies
+var TASK_GET_NS_A = iapetus.Task{
+	Name:    "Get Namespace A",
+	Command: "kubectl",
+	Args:    []string{"get", "ns", nsA, "-o", "json"},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+		AssertNamespaceExists(nsA),
+	},
+	Depends: []string{"Create Namespace A"},
+}
+
+var TASK_GET_DEPLOYMENT_A = iapetus.Task{
+	Name:    "Get Deployment A",
+	Command: "kubectl",
+	Args:    []string{"get", "deployment", "-n", nsA, "-o", "json"},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+		AssertDeploymentExists("nginx-a"),
+	},
+	Depends: []string{"Deploy Nginx in A"},
+}
+
+var TASK_GET_DEPLOYMENT_B = iapetus.Task{
+	Name:    "Get Deployment B",
+	Command: "kubectl",
+	Args:    []string{"get", "deployment", "-n", nsB, "-o", "json"},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+		AssertDeploymentExists("nginx-b"),
+	},
+	Depends: []string{"Deploy Nginx in B"},
+}
+
+var TASK_CHECK_NO_DEPLOYMENT_A = iapetus.Task{
+	Name:    "Check No Deployment A",
+	Command: "kubectl",
+	Args:    []string{"get", "deployment", "-n", nsA, "-o", "json"},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+		AssertNoDeployments(),
+	},
+	Depends: []string{"Delete Deployment A"},
+}
+
+var TASK_CHECK_NO_DEPLOYMENT_B = iapetus.Task{
+	Name:    "Check No Deployment B",
+	Command: "kubectl",
+	Args:    []string{"get", "deployment", "-n", nsB, "-o", "json"},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+		AssertNoDeployments(),
+	},
+	Depends: []string{"Delete Deployment B"},
+}
+
+// Final summary task that depends on both pod checks
+var TASK_SUMMARY = iapetus.Task{
+	Name:    "Summary",
+	Command: "echo",
+	Args:    []string{"All checks passed!"},
+	Asserts: []func(*iapetus.Task) error{
+		iapetus.AssertExitCode(0),
+		// Could add more summary logic here
+	},
+	Depends: []string{"Get Pods in A", "Get Pods in B"},
+}
+
+func AssertPodsExist(t *iapetus.Task) error {
 	pods := &v1.PodList{}
-	err := json.Unmarshal([]byte(s.Actual.Output), &pods)
+	err := json.Unmarshal([]byte(t.Actual.Output), &pods)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal pods specs: %w", err)
+		return fmt.Errorf("failed to unmarshal pods: %w\nRaw output: %s", err, t.Actual.Output)
 	}
-	if len(pods.Items) > 0 {
-		return fmt.Errorf("pods length should be 0")
-	}
-	return nil
-}
-
-func AssertByNsCount(s *iapetus.Task) error {
-	ns := &v1.Namespace{}
-	err := json.Unmarshal([]byte(s.Actual.Output), &ns)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal ns specs: %w", err)
-	}
-	if ns.Name != "test" {
-		return fmt.Errorf("ns name should be test")
+	if len(pods.Items) == 0 {
+		return fmt.Errorf("no pods found\nRaw output: %s", t.Actual.Output)
 	}
 	return nil
 }
 
 func main() {
-	workflow := getWorkflowCasesForKubernetes()
-	if err := workflow.Run(); err != nil {
-		fmt.Println(err)
+	// Build the DAG workflow with advanced assertions and dependencies
+	workflow := iapetus.NewWorkflow("K8s DAG Example", zap.NewNop())
+	workflow.Steps = []iapetus.Task{
+		TASK_CREATE_KIND_CLUSTER,
+		TASK_CREATE_NS_A,
+		TASK_CREATE_NS_B,
+		TASK_GET_NS_A,
+		TASK_DEPLOY_NGINX_A,
+		TASK_DEPLOY_NGINX_B,
+		TASK_GET_DEPLOYMENT_A,
+		TASK_GET_DEPLOYMENT_B,
+		TASK_GET_PODS_A,
+		TASK_GET_PODS_B,
+		TASK_DELETE_DEPLOYMENT_A,
+		TASK_DELETE_DEPLOYMENT_B,
+		TASK_CHECK_NO_DEPLOYMENT_A,
+		TASK_CHECK_NO_DEPLOYMENT_B,
+		TASK_DELETE_NS_A,
+		TASK_DELETE_NS_B,
+		TASK_DELETE_KIND_CLUSTER,
+		TASK_SUMMARY,
+	}
+
+	fmt.Println("--- Running Kubernetes DAG Workflow with Advanced Assertions ---")
+	err := workflow.Run()
+	if err != nil {
+		fmt.Printf("Workflow failed: %v\n", err)
 		os.Exit(1)
 	}
-
-	tests := getTestCasesForKubernetes()
-	for _, test := range tests {
-		if err := test.Run(); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-	}
-
-	if err := TASK_DELETE_KIND_CLUSTER.Run(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}
-
-func getWorkflowCasesForKubernetes() iapetus.Workflow {
-	return iapetus.Workflow{
-		Name: "Entire flow",
-		PreRun: func(w *iapetus.Workflow) error {
-			return TASK_CREATE_KIND_CLUSTER.Run()
-		},
-		LogLevel: 1,
-		PostRun: func(w *iapetus.Workflow) error {
-			return TASK_DELETE_NS.Run()
-		},
-		Steps: []iapetus.Task{
-			{
-				Name:    "kubectl-get-ns",
-				Command: "kubectl",
-				Args:    []string{"get", "ns", ns, "-o", "json"},
-				Env:     []string{},
-				PreRun: func(w *iapetus.Task) error {
-					return TASK_CREATE_NS.Run()
-				},
-				Expected: iapetus.Output{
-					ExitCode: 0,
-				},
-				Asserts: []func(*iapetus.Task) error{
-					iapetus.AssertByExitCode,
-					AssertByNsCount,
-				},
-			},
-			{
-				Name:    "kubectl-get-pods-with-deployment",
-				Command: "kubectl",
-				Args:    []string{"get", "pods", "-n", ns, "-o", "json"},
-				Env:     []string{},
-				Retries: 1,
-				PreRun: func(w *iapetus.Task) error {
-					return TASK_CREATE_NGINX_DEPLOYMENT.Run()
-				},
-				PostRun: func(w *iapetus.Task) error {
-					return TASK_DELETE_NGINX_DEPLOYMENT.Run()
-				},
-				Expected: iapetus.Output{
-					ExitCode: 0,
-				},
-				Asserts: []func(*iapetus.Task) error{
-					iapetus.AssertByExitCode,
-					AssertByCustomDeploymentCheck,
-				},
-			},
-		},
-	}
-}
-
-func getTestCasesForKubernetes() []iapetus.Task {
-	return []iapetus.Task{
-		{
-			Name:    "kubectl-get-pods",
-			Command: "kubectl",
-			Args:    []string{"get", "pods", "-n", "default"},
-			Env:     []string{},
-			PreRun: func(t *iapetus.Task) error {
-				fmt.Println("Task Started, I can create a temp file before running a command")
-				return nil
-			},
-			Expected: iapetus.Output{
-				ExitCode: 0,
-			},
-			Asserts: []func(*iapetus.Task) error{
-				iapetus.AssertByExitCode,
-			},
-		},
-		{
-			Name:    "kubectl-get-pods-json",
-			Command: "kubectl",
-			Args:    []string{"get", "pods", "-n", "default", "-o", "json"},
-			Env:     []string{},
-			Expected: iapetus.Output{
-				ExitCode: 0,
-			},
-			Asserts: []func(*iapetus.Task) error{
-				iapetus.AssertByExitCode,
-				AssertByPodsCount,
-			},
-		},
-	}
+	fmt.Println("Workflow completed successfully!")
 }
