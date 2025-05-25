@@ -12,40 +12,58 @@ import (
 	"go.uber.org/zap"
 )
 
-// Task represents a configurable command execution unit that can be run with retries
-// and validated against expected outputs and custom assertiont.
+// Task represents a configurable command execution unit that can be run with retries,
+// validated against expected outputs, and extended with custom assertions and hooks.
 type Task struct {
-	Name       string              // Unique identifier for the task
-	Command    string              // The command to execute
-	Retries    int                 // Number of retry attempts if assertions fail
-	Args       []string            // Command line arguments
-	Timeout    time.Duration       // Maximum execution time
-	Env        []string            `json:"env" yaml:"env"`         // Additional environment variables (KEY=VALUE)
-	EnvMap     map[string]string   `json:"env_map" yaml:"env_map"` // Alternative env representation (key-value)
-	Image      string              `json:"image" yaml:"image"`     // Container image to use for the task (optional)
-	WorkingDir string              // Working dir
-	Depends    []string            // Dependencies for the task
-	Actual     Output              // Actual command output and results
-	Asserts    []func(*Task) error // Custom validation functions
-	logger     *zap.Logger
-	// PreRun is executed before any tasks. It can be used for task initialization
+	// Name is a unique identifier for the task.
+	Name string // Unique identifier for the task
+	// Command is the command to execute.
+	Command string // The command to execute
+	// Retries is the number of retry attempts if assertions fail.
+	Retries int // Number of retry attempts if assertions fail
+	// Args are command line arguments for the command.
+	Args []string // Command line arguments
+	// Timeout is the maximum execution time for the task.
+	Timeout time.Duration // Maximum execution time
+	// Env is a list of additional environment variables (KEY=VALUE).
+	Env []string `json:"env" yaml:"env"` // Additional environment variables (KEY=VALUE)
+	// EnvMap is an alternative environment variable representation (key-value map).
+	EnvMap map[string]string `json:"env_map" yaml:"env_map"` // Alternative env representation (key-value)
+	// Image is the container image to use for the task (optional).
+	Image string `json:"image" yaml:"image"` // Container image to use for the task (optional)
+	// WorkingDir is the working directory for the command.
+	WorkingDir string // Working dir
+	// Depends lists the names of tasks this task depends on.
+	Depends []string // Dependencies for the task
+	// Actual holds the actual output and results of the command execution.
+	Actual Output // Actual command output and results
+	// Asserts is a list of custom validation functions (assertions).
+	Asserts []func(*Task) error // Custom validation functions
+	// logger is the zap logger used for this task.
+	logger *zap.Logger
+	// PreRun is executed before the task runs. Can be used for task initialization
 	PreRun func(w *Task) error // PreRun is executed before any tasks
-	// PostRun is executed after all tasks complete successfully
-	PostRun func(w *Task) error // PostRun is executed after all tasks
+	// PostRun is executed after the task completes successfully.
+	PostRun func(w *Task) error // PostRun is executed after all tasks complete successfully
 }
 
 // Output holds the execution results of a command, including its exit code,
 // standard output, error output, and expected content.
 type Output struct {
-	ExitCode int      // Process exit code
-	Output   string   // Combined stdout and stderr
-	Error    string   // Error message if execution failed
+	// ExitCode is the process exit code.
+	ExitCode int // Process exit code
+	// Output is the combined stdout and stderr.
+	Output string // Combined stdout and stderr
+	// Error is the error message if execution failed.
+	Error string // Error message if execution failed
+	// Contains lists strings that should be present in the output.
 	Contains []string // Strings that should be present in the output
+	// Patterns are regular expression patterns to match against the output.
 	Patterns []string // Regular expression pattern to match against the output
 }
 
 // NewTask creates a new Task instance with the specified name and timeout.
-// If name is empty, a UUID-based name will be generated.
+// If name is empty, a UUID-based name will be generated. If logger is nil, a production zap logger is used.
 func NewTask(name string, timeout time.Duration, logger *zap.Logger) *Task {
 	if name == "" {
 		name = "task-" + uuid.New().String()
@@ -61,9 +79,9 @@ func NewTask(name string, timeout time.Duration, logger *zap.Logger) *Task {
 	}
 }
 
-// Run executes the task with configured retries and assertiont.
-// It captures the command output and runs all registered assertiont.
-// Returns an error if any assertion fails after all retry attemptt.
+// Run executes the task with configured retries and assertions.
+// It captures the command output and runs all registered assertions.
+// Returns an error if any assertion fails after all retry attempts.
 func (t *Task) Run() error {
 	if t.Name == "" {
 		t.Name = "task-" + uuid.New().String()
@@ -140,98 +158,114 @@ func (t *Task) executeCommand() error {
 }
 
 // AddAssertion registers a new assertion function to validate the task execution.
-// Assertions are run in the order they are added after the command completet.
+// Assertions are run in the order they are added after the command completes.
 func (t *Task) AddAssertion(assert func(*Task) error) *Task {
 	t.Asserts = append(t.Asserts, assert)
 	return t
 }
 
+// AddEnv appends environment variables to the task.
 func (t *Task) AddEnv(env ...string) *Task {
 	t.Env = append(t.Env, env...)
 	return t
 }
 
+// AddArgs appends command line arguments to the task.
 func (t *Task) AddArgs(args ...string) *Task {
 	t.Args = append(t.Args, args...)
 	return t
 }
 
+// AddCommand sets the command to execute for the task.
 func (t *Task) AddCommand(command string) *Task {
 	t.Command = command
 	return t
 }
 
+// SetRetries sets the number of retry attempts for the task.
 func (t *Task) SetRetries(retry int) *Task {
 	t.Retries = retry
 	return t
 }
 
-// Assertion shortcut methods (use new assert.go functions)
+// AssertExitCode adds an assertion that checks the exit code of the task.
 func (t *Task) AssertExitCode(code int) *Task {
 	return t.AddAssertion(AssertExitCode(code))
 }
 
+// AssertOutputContains adds an assertion that checks if output contains a substring.
 func (t *Task) AssertOutputContains(substr string) *Task {
 	return t.AddAssertion(AssertOutputContains(substr))
 }
 
+// AssertOutputEquals adds an assertion that checks if output matches exactly.
 func (t *Task) AssertOutputEquals(expected string) *Task {
 	return t.AddAssertion(AssertOutputEquals(expected))
 }
 
+// AssertOutputJsonEquals adds an assertion that checks if output JSON matches expected JSON.
 func (t *Task) AssertOutputJsonEquals(expected string, skipJsonNodes ...string) *Task {
 	return t.AddAssertion(AssertOutputJsonEquals(expected, skipJsonNodes...))
 }
 
+// AssertOutputMatchesRegexp adds an assertion that checks if output matches a regexp.
 func (t *Task) AssertOutputMatchesRegexp(pattern string) *Task {
 	return t.AddAssertion(AssertOutputMatchesRegexp(pattern))
 }
 
-// Assertion DSL builder
-// TaskAssertionBuilder allows chaining assertion methods in a fluent style
+// Expect returns a new TaskAssertionBuilder for chaining assertions in a fluent style.
+func (t *Task) Expect() *TaskAssertionBuilder {
+	return &TaskAssertionBuilder{task: t}
+}
+
+// TaskAssertionBuilder allows chaining assertion methods in a fluent style.
 // Usage: task.Expect().ExitCode(0).OutputContains("foo").Done()
 type TaskAssertionBuilder struct {
 	task *Task
 }
 
-// Expect returns a new TaskAssertionBuilder for chaining assertions
-func (t *Task) Expect() *TaskAssertionBuilder {
-	return &TaskAssertionBuilder{task: t}
-}
-
+// ExitCode adds an exit code assertion to the builder.
 func (b *TaskAssertionBuilder) ExitCode(code int) *TaskAssertionBuilder {
 	b.task.AssertExitCode(code)
 	return b
 }
+
+// OutputContains adds an output substring assertion to the builder.
 func (b *TaskAssertionBuilder) OutputContains(substr string) *TaskAssertionBuilder {
 	b.task.AssertOutputContains(substr)
 	return b
 }
+
+// OutputEquals adds an output equality assertion to the builder.
 func (b *TaskAssertionBuilder) OutputEquals(expected string) *TaskAssertionBuilder {
 	b.task.AssertOutputEquals(expected)
 	return b
 }
+
+// OutputJsonEquals adds a JSON output equality assertion to the builder.
 func (b *TaskAssertionBuilder) OutputJsonEquals(expected string, skipJsonNodes ...string) *TaskAssertionBuilder {
 	b.task.AssertOutputJsonEquals(expected, skipJsonNodes...)
 	return b
 }
+
+// OutputMatchesRegexp adds a regexp output assertion to the builder.
 func (b *TaskAssertionBuilder) OutputMatchesRegexp(pattern string) *TaskAssertionBuilder {
 	b.task.AssertOutputMatchesRegexp(pattern)
 	return b
 }
 
-// Done returns the parent Task for further chaining
+// Done returns the parent Task for further chaining.
 func (b *TaskAssertionBuilder) Done() *Task {
 	return b.task
 }
 
-// AddImage sets the container image for the task
+// AddImage sets the container image for the task.
 func (t *Task) AddImage(image string) *Task {
 	t.Image = image
 	return t
 }
 
-// AddEnvMap sets the EnvMap for the task (overwrites existing)
+// AddEnvMap sets the EnvMap for the task (overwrites existing).
 func (t *Task) AddEnvMap(envMap map[string]string) *Task {
 	t.EnvMap = envMap
 	return t
