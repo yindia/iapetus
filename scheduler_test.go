@@ -47,8 +47,15 @@ func TestDagScheduler_ParallelExecution(t *testing.T) {
 	wg.Add(len(tasks))
 	w := NewWorkflow("test", zap.NewNop())
 	ds := newDagScheduler(w, tasks)
-	go ds.run()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ds.run()
+	}()
 	wg.Wait()
+	err := <-errCh
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if len(order) != 2 {
 		t.Fatalf("expected 2 tasks to run, got %d", len(order))
 	}
@@ -91,8 +98,15 @@ func TestDagScheduler_Dependencies(t *testing.T) {
 	wg.Add(len(tasks))
 	w := NewWorkflow("test", zap.NewNop())
 	ds := newDagScheduler(w, tasks)
-	go ds.run()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ds.run()
+	}()
 	wg.Wait()
+	err := <-errCh
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if !(order[0] == "a" && order[1] == "b") {
 		t.Errorf("expected a before b, got %v", order)
 	}
@@ -150,8 +164,15 @@ func TestDagScheduler_SingleTask(t *testing.T) {
 	}
 	w := NewWorkflow("test", zap.NewNop())
 	ds := newDagScheduler(w, []*Task{task})
-	go ds.run()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ds.run()
+	}()
 	wg.Wait()
+	err := <-errCh
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }
 
 func TestDagScheduler_TaskPanic(t *testing.T) {
@@ -267,7 +288,10 @@ func TestDagScheduler_NoGoroutineLeak(t *testing.T) {
 		wg.Add(1)
 	}
 	ds := newDagScheduler(w, tasks)
-	go ds.run()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ds.run()
+	}()
 	c := make(chan struct{})
 	go func() {
 		wg.Wait()
@@ -278,5 +302,9 @@ func TestDagScheduler_NoGoroutineLeak(t *testing.T) {
 		// Success
 	case <-time.After(2 * time.Second):
 		t.Fatal("goroutines did not finish (possible leak)")
+	}
+	err := <-errCh
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -316,7 +316,7 @@ func main() {
 	fmt.Println("--- Running Kubernetes DAG Workflow with Advanced Assertions ---")
 	err := workflow.Run()
 	if err != nil {
-		fmt.Printf("Workflow failed: %v\n", err)
+		fmt.Println("Workflow failed:", err)
 		os.Exit(1)
 	}
 	fmt.Println("Workflow completed successfully!")

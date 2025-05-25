@@ -145,22 +145,6 @@ func (w *Workflow) AddOnTaskCompleteHook(hook func(*Task)) *Workflow {
 	return w
 }
 
-// Update initHooks to initialize slices if nil
-func (w *Workflow) initHooks() {
-	if w.OnTaskStartHooks == nil {
-		w.OnTaskStartHooks = []func(*Task){}
-	}
-	if w.OnTaskSuccessHooks == nil {
-		w.OnTaskSuccessHooks = []func(*Task){}
-	}
-	if w.OnTaskFailureHooks == nil {
-		w.OnTaskFailureHooks = []func(*Task, error){}
-	}
-	if w.OnTaskCompleteHooks == nil {
-		w.OnTaskCompleteHooks = []func(*Task){}
-	}
-}
-
 // Observability hooks (call all registered hooks)
 func (w *Workflow) OnTaskStart(task *Task) {
 	for _, hook := range w.OnTaskStartHooks {

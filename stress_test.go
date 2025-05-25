@@ -48,7 +48,8 @@ func TestWorkflow_SimpleStress(t *testing.T) {
 // Advanced stress test: random DAGs, random failures, panics
 func TestWorkflow_AdvancedStress(t *testing.T) {
 	t.Parallel()
-	rand.Seed(time.Now().UnixNano())
+	seed := time.Now().UnixNano()
+	r := rand.New(rand.NewSource(seed))
 	const numWorkflows = 20
 	const tasksPerWorkflow = 50
 	var wg sync.WaitGroup
@@ -61,17 +62,17 @@ func TestWorkflow_AdvancedStress(t *testing.T) {
 				name := fmt.Sprintf("w%d-t%d", wfID, j)
 				// Random dependencies: up to 3 from previous tasks
 				depends := []string{}
-				for d := 0; d < rand.Intn(3); d++ {
-					if k := rand.Intn(j + 1); k < j {
+				for d := 0; d < r.Intn(3); d++ {
+					if k := r.Intn(j + 1); k < j {
 						depends = append(depends, fmt.Sprintf("w%d-t%d", wfID, k))
 					}
 				}
 				// Randomly fail or panic
 				asserts := []func(*Task) error{AssertByExitCode}
-				if rand.Float64() < 0.05 {
+				if r.Float64() < 0.05 {
 					asserts = append(asserts, func(t *Task) error { return fmt.Errorf("random fail") })
 				}
-				if rand.Float64() < 0.02 {
+				if r.Float64() < 0.02 {
 					asserts = append(asserts, func(t *Task) error { panic("random panic") })
 				}
 				steps = append(steps, Task{

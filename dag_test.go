@@ -357,6 +357,8 @@ func TestDAG_TopologicalOrder_Property(t *testing.T) {
 
 		dag := NewDag()
 		names := make([]string, n)
+		seed := int64(numTasks) // Use numTasks as seed for determinism
+		r := rand.New(rand.NewSource(seed))
 		for i := 0; i < n; i++ {
 			names[i] = fmt.Sprintf("t%d", i)
 		}
@@ -364,7 +366,7 @@ func TestDAG_TopologicalOrder_Property(t *testing.T) {
 		for i := 0; i < n; i++ {
 			deps := []string{}
 			for j := 0; j < i; j++ {
-				if rand.Float64() < 0.3 {
+				if r.Float64() < 0.3 {
 					deps = append(deps, names[j])
 				}
 			}
