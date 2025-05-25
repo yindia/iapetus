@@ -68,3 +68,68 @@ func TestIntegrationTest_RunCommandError(t *testing.T) {
 		t.Fatalf("expected error for invalid command, got nil")
 	}
 }
+
+func TestTask_AssertExitCode(t *testing.T) {
+	task := NewTask("test", 0, nil).AssertExitCode(0)
+	task.Actual.ExitCode = 0
+	if err := RunAssertions(task); err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	task.Actual.ExitCode = 1
+	if err := RunAssertions(task); err == nil {
+		t.Errorf("expected error for wrong exit code, got nil")
+	}
+}
+
+func TestTask_AssertOutputContains(t *testing.T) {
+	task := NewTask("test", 0, nil).AssertOutputContains("foo")
+	task.Actual.Output = "hello foo bar"
+	if err := RunAssertions(task); err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	task.Actual.Output = "hello bar"
+	if err := RunAssertions(task); err == nil {
+		t.Errorf("expected error for missing substring, got nil")
+	}
+}
+
+func TestTask_AssertOutputEquals(t *testing.T) {
+	task := NewTask("test", 0, nil).AssertOutputEquals("foo")
+	task.Actual.Output = "foo"
+	if err := RunAssertions(task); err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	task.Actual.Output = "bar"
+	if err := RunAssertions(task); err == nil {
+		t.Errorf("expected error for output mismatch, got nil")
+	}
+}
+
+func TestTask_AssertOutputMatchesRegexp(t *testing.T) {
+	task := NewTask("test", 0, nil).AssertOutputMatchesRegexp(`foo\d+`)
+	task.Actual.Output = "foo123"
+	if err := RunAssertions(task); err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	task.Actual.Output = "bar"
+	if err := RunAssertions(task); err == nil {
+		t.Errorf("expected error for regex mismatch, got nil")
+	}
+}
+
+func TestTask_ExpectDSL(t *testing.T) {
+	task := NewTask("test", 0, nil).
+		Expect().
+		ExitCode(0).
+		OutputContains("foo").
+		Done()
+	task.Actual.ExitCode = 0
+	task.Actual.Output = "foo bar"
+	if err := RunAssertions(task); err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	task.Actual.ExitCode = 1
+	if err := RunAssertions(task); err == nil {
+		t.Errorf("expected error for wrong exit code, got nil")
+	}
+}
