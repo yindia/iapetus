@@ -179,3 +179,62 @@ func (t *Task) SetRetries(retry int) *Task {
 	t.Retries = retry
 	return t
 }
+
+// Assertion shortcut methods (use new assert.go functions)
+func (t *Task) AssertExitCode(code int) *Task {
+	return t.AddAssertion(AssertExitCode(code))
+}
+
+func (t *Task) AssertOutputContains(substr string) *Task {
+	return t.AddAssertion(AssertOutputContains(substr))
+}
+
+func (t *Task) AssertOutputEquals(expected string) *Task {
+	return t.AddAssertion(AssertOutputEquals(expected))
+}
+
+func (t *Task) AssertOutputJsonEquals(expected string, skipJsonNodes ...string) *Task {
+	return t.AddAssertion(AssertOutputJsonEquals(expected, skipJsonNodes...))
+}
+
+func (t *Task) AssertOutputMatchesRegexp(pattern string) *Task {
+	return t.AddAssertion(AssertOutputMatchesRegexp(pattern))
+}
+
+// Assertion DSL builder
+// TaskAssertionBuilder allows chaining assertion methods in a fluent style
+// Usage: task.Expect().ExitCode(0).OutputContains("foo").Done()
+type TaskAssertionBuilder struct {
+	task *Task
+}
+
+// Expect returns a new TaskAssertionBuilder for chaining assertions
+func (t *Task) Expect() *TaskAssertionBuilder {
+	return &TaskAssertionBuilder{task: t}
+}
+
+func (b *TaskAssertionBuilder) ExitCode(code int) *TaskAssertionBuilder {
+	b.task.AssertExitCode(code)
+	return b
+}
+func (b *TaskAssertionBuilder) OutputContains(substr string) *TaskAssertionBuilder {
+	b.task.AssertOutputContains(substr)
+	return b
+}
+func (b *TaskAssertionBuilder) OutputEquals(expected string) *TaskAssertionBuilder {
+	b.task.AssertOutputEquals(expected)
+	return b
+}
+func (b *TaskAssertionBuilder) OutputJsonEquals(expected string, skipJsonNodes ...string) *TaskAssertionBuilder {
+	b.task.AssertOutputJsonEquals(expected, skipJsonNodes...)
+	return b
+}
+func (b *TaskAssertionBuilder) OutputMatchesRegexp(pattern string) *TaskAssertionBuilder {
+	b.task.AssertOutputMatchesRegexp(pattern)
+	return b
+}
+
+// Done returns the parent Task for further chaining
+func (b *TaskAssertionBuilder) Done() *Task {
+	return b.task
+}

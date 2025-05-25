@@ -26,46 +26,66 @@ go get github.com/yindia/iapetus
 
 ---
 
-## Quick Start
+## Defining Tasks: Two Approaches
+
+You can define tasks using either **struct literals** or the **builder/fluent API**. Both are fully supported and interoperable.
+
+### 1. Struct Literal Style
 
 ```go
-import (
-    "time"
-    "log"
-    "github.com/yindia/iapetus"
-    "go.uber.org/zap"
-)
+import "github.com/yindia/iapetus"
 
-// Create a simple task
-step := iapetus.NewTask("verify-service", 5*time.Second, nil).
-    AddCommand("curl").
-    AddArgs("-f", "http://localhost:8080").
-    AddExpected(iapetus.Output{ExitCode: 0}).
-    AddAssertion(iapetus.AssertByExitCode)
-
-// Run the task
-if err := step.Run(); err != nil {
-    log.Fatalf("Task failed: %v", err)
+task := &iapetus.Task{
+    Name:    "verify-service",
+    Command: "curl",
+    Args:    []string{"-f", "http://localhost:8080"},
+    // You can still use legacy assertion functions for backward compatibility:
+    Asserts: []func(*iapetus.Task) error{
+        iapetus.AssertByExitCode, // legacy, uses Expected.ExitCode
+        iapetus.AssertByContains, // legacy, uses Expected.Contains
+    },
+    // But the new style is preferred:
+    // Asserts: []func(*iapetus.Task) error{
+    //     iapetus.AssertExitCode(0),
+    //     iapetus.AssertOutputContains("Success"),
+    // },
 }
 ```
 
----
+- **Preferred:** Use the new assertion functions that accept expected values directly.
+- **Legacy:** The old assertion functions are still available for backward compatibility.
 
-## Defining Tasks
-
-A `Task` represents a command to run, its arguments, environment, expected output, and assertions.
+### 2. Builder/Fluent API Style
 
 ```go
-task := iapetus.NewTask("kubectl-get-pods", 10*time.Second, nil).
-    AddCommand("kubectl").
-    AddArgs("get", "pods", "-n", "default").
-    AddExpected(iapetus.Output{ExitCode: 0}).
-    AddAssertion(iapetus.AssertByExitCode)
+import "github.com/yindia/iapetus"
+
+task := iapetus.NewTask("verify-service", 5*time.Second, nil).
+    AddCommand("curl").
+    AddArgs("-f", "http://localhost:8080").
+    AssertExitCode(0).
+    AssertOutputContains("Success").
+    AssertOutputEquals("expected output").
+    AssertOutputJsonEquals(`{"foo":"bar"}`).
+    AssertOutputMatchesRegexp("pattern").
+    Expect().OutputContains("Success").ExitCode(0).Done()
 ```
 
-- **Assertions**: Add built-in or custom assertions with `AddAssertion`.
-- **Retries**: Use `SetRetries(n)` to retry on failure.
-- **Environment**: Use `AddEnv` to set environment variables.
+- Pass expected values directly to assertion methods—no need to set `Expected` fields.
+- Use the fluent `Expect()` DSL for readable, chainable assertions.
+
+---
+
+## Assertion Usage: Summary Table
+
+| Approach         | Example Usage                                                                 | When to Use                |
+|------------------|-------------------------------------------------------------------------------|----------------------------|
+| Struct Literal   | `Asserts: []func(*Task) error{AssertExitCode(0), AssertOutputContains("foo")}`| Static config, YAML, tests |
+| Builder/Fluent   | `.AssertExitCode(0).AssertOutputContains("foo")`                             | Programmatic, chaining     |
+| Assertion DSL    | `.Expect().ExitCode(0).OutputContains("foo").Done()`                        | Complex, readable chains   |
+
+- **All approaches are interoperable**: you can mix and match as needed.
+- **Preferred:** Use the new assertion functions with expected values as arguments.
 
 ---
 
@@ -75,8 +95,8 @@ A `Workflow` is a collection of tasks with dependencies, executed in parallel wh
 
 ```go
 workflow := iapetus.NewWorkflow("cluster-setup", zap.NewNop()).
-    AddTask(*step1).
-    AddTask(*step2).
+    AddTask(*task1).
+    AddTask(*task2).
     AddPreRun(func(w *iapetus.Workflow) error {
         // Setup logic before tasks run
         return nil
@@ -97,27 +117,15 @@ if err := workflow.Run(); err != nil {
 
 ---
 
-## Assertions
+## Built-in Assertions
 
-Built-in assertion functions:
+- `AssertExitCode(expected int)`: Validates the exit code
+- `AssertOutputEquals(expected string)`: Exact string match
+- `AssertOutputJsonEquals(expected string, skipJsonNodes ...string)`: JSON comparison
+- `AssertOutputContains(substr string)`: Substring presence
+- `AssertOutputMatchesRegexp(pattern string)`: Output matches regular expression
 
-- `AssertByExitCode`: Validates the exit code
-- `AssertByOutputString`: Exact string match
-- `AssertByOutputJson`: JSON comparison (with node skipping)
-- `AssertByContains`: Substring presence
-- `AssertByError`: Error message validation (substring or regexp)
-- `AssertByRegexp`: Output matches regular expression
-
-**Example:**
-
-```go
-task.AddAssertion(iapetus.AssertByExitCode).
-     AddAssertion(iapetus.AssertByContains("Ready"))
-```
-
----
-
-## Custom Assertions
+### Custom Assertions
 
 Add your own validation logic:
 
