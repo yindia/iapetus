@@ -28,7 +28,7 @@ jobs:
       run: go vet ./...
 
     - name: Install golangci-lint
-      uses: golangci/golangci-lint-action@v3
+      uses: golangci/golangci-lint-action@v5
       with:
         version: latest
 
