@@ -1,237 +1,126 @@
 # iapetus 🚀
 
-A Go package for executing and validating command-line workflows with built-in assertions and error handling.
+[![Go Reference](https://pkg.go.dev/badge/github.com/yindia/iapetus.svg)](https://pkg.go.dev/github.com/yindia/iapetus)
+[![Go Report Card](https://goreportcard.com/badge/github.com/yindia/iapetus)](https://goreportcard.com/report/github.com/yindia/iapetus)
+
+A robust, extensible Go package for orchestrating and validating command-line workflows with parallel DAG execution, built-in assertions, and advanced observability.
+
+---
 
 ## Overview 📋
 
-The `iapetus` package provides:
-- 📦 Structured workflow execution with sequential steps
-- ✅ Built-in and custom assertions for validating outputs
-- 🔄 Retry mechanisms for flaky operations
-- 🏗️ Fluent builder pattern for readable workflow construction
+- ⚡ **Parallel, dependency-aware workflow execution** (DAG-based)
+- ✅ **Built-in and custom assertions** for validating outputs
+- 🔄 **Retries** for flaky operations
+- 🏗️ **Fluent builder pattern** for readable workflow and task construction
+- 🔍 **Observability hooks** and pluggable logging (uses [zap](https://github.com/uber-go/zap))
+- 🧪 **Battle-tested**: stress, property-based, and concurrency tests
+
+---
 
 ## Installation 💻
 
-```go
+```sh
 go get github.com/yindia/iapetus
 ```
 
-## Usage 🛠️
+---
 
-### Quick Start
+## Quick Start
 
 ```go
+import (
+    "time"
+    "log"
+    "github.com/yindia/iapetus"
+    "go.uber.org/zap"
+)
+
 // Create a simple task
-task := iapetus.NewTask("verify-service", 5*time.Second, 0).
+step := iapetus.NewTask("verify-service", 5*time.Second, nil).
     AddCommand("curl").
     AddArgs("-f", "http://localhost:8080").
     AddExpected(iapetus.Output{ExitCode: 0}).
     AddAssertion(iapetus.AssertByExitCode)
 
 // Run the task
-if err := task.Run(); err != nil {
+if err := step.Run(); err != nil {
     log.Fatalf("Task failed: %v", err)
 }
 ```
 
-### Defining a Step
+---
 
-A `Step` is defined with the command to run, its arguments, environment variables, and expected output. You can also add custom assertions to a step.
+## Defining Tasks
 
-```go
-step := iapetus.Step{
-    Command: "kubectl",
-    Args:    []string{"get", "pods", "-n", "default"},
-    Env:     []string{},
-    Expected: iapetus.Output{
-        ExitCode: 1,
-    },
-    LogLevel: 0,
-    Asserts: []func(*iapetus.Step) error{
-        iapetus.AssertByExitCode,
-        func(i *iapetus.Step) error {
-            // TODO: Add custom assertion
-            return nil
-        },
-    },
-}
-
-err := step.Run()
-if err != nil {
-    log.Fatalf("Failed to run step: %v", err)
-}
-```
-
-
-### Define a Workflow
-
-A `Workflow` consists of multiple steps that are executed in sequence. If any step fails its assertions, the workflow stops.
+A `Task` represents a command to run, its arguments, environment, expected output, and assertions.
 
 ```go
-	workflow := iapetus.Workflow{
-		Name: "Entire flow",
-		PreRun: func(w *iapetus.Workflow) error {
-			//# Do sonething like setup kind cluster
-			return nil
-		},
-		LogLevel: 1,
-		Steps: []iapetus.Task{
-			{
-				Name:    "kubectl-create-ns",
-				Command: "kubectl",
-				Args:    []string{"create", "ns", ns},
-				Env:     []string{},
-				Expected: iapetus.Output{
-					ExitCode: 0,
-				},
-				Asserts: []func(*iapetus.Task) error{
-					iapetus.AssertByExitCode,
-				},
-			},
-			{
-				Name:    "kubectl-create-deployment",
-				Command: "kubectl",
-				Args:    []string{"create", "deployment", "test", "--image", "nginx", "--replicas", "30", "-n", ns},
-				Env:     []string{},
-				Expected: iapetus.Output{
-					ExitCode: 0,
-				},
-				Asserts: []func(*iapetus.Task) error{
-					iapetus.AssertByExitCode,
-				},
-			},
-			{
-				Name:    "kubectl-get-pods-with-deployment",
-				Command: "kubectl",
-				Args:    []string{"get", "pods", "-n", ns, "-o", "json"},
-				Env:     []string{},
-				Retries: 1,
-				Expected: iapetus.Output{
-					ExitCode: 0,
-				},
-				Asserts: []func(*iapetus.Task) error{
-					iapetus.AssertByExitCode,
-					func(s *iapetus.Task) error {
-						deployment := &appsv1.DeploymentList{}
-						err := json.Unmarshal([]byte(s.Actual.Output), &deployment)
-						if err != nil {
-							return fmt.Errorf("failed to unmarshal deployment specs: %w", err)
-						}
-						if len(deployment.Items) == 1 {
-							return fmt.Errorf("deployment length should be 1")
-						}
-						for _, item := range deployment.Items {
-							if item.Name == "test" {
-								for _, container := range item.Spec.Template.Spec.Containers {
-									if container.Image != "nginx" {
-										return fmt.Errorf("container image should be nginx")
-									}
-								}
-								if item.Status.Replicas != *item.Spec.Replicas {
-									return fmt.Errorf("deployment replicas do not match desired state")
-								}
-							}
-						}
-						return nil
-					},
-				},
-			},
-		},
-	}	
-	if err := workflow.Run(); err != nil {
-		log.Fatalf("Failed to run workflow: %v", err)
-	}
-```
-
-### Builder Pattern
-
-The package provides a fluent builder pattern for creating tasks and workflows, making it easier to construct complex workflows with a more readable syntax:
-
-```go
-// Create a task with timeout and log level
-step1 := iapetus.NewTask("create cluster", 10*time.Second, 0).
-    AddCommand("kind").
-    AddArgs("create", "cluster").
-    AddExpected(iapetus.Output{
-        ExitCode: 0,
-    }).
-    AddAssertion(iapetus.AssertByExitCode)
-
-// Create another task
-step2 := iapetus.NewTask("verify pods", 10*time.Second, 0).
+task := iapetus.NewTask("kubectl-get-pods", 10*time.Second, nil).
     AddCommand("kubectl").
-    AddArgs("get", "pods").
-    AddExpected(iapetus.Output{
-        ExitCode: 0,
-    }).
+    AddArgs("get", "pods", "-n", "default").
+    AddExpected(iapetus.Output{ExitCode: 0}).
     AddAssertion(iapetus.AssertByExitCode)
+```
 
-// Combine tasks into a workflow
-workflow := iapetus.NewWorkflow("cluster-setup", 0).
-    AddTask(step2).
-    AddPreRun(func(w *Workflow) error {
-        if err := step1.Run(); err != nil {
-            return err
-        }
+- **Assertions**: Add built-in or custom assertions with `AddAssertion`.
+- **Retries**: Use `SetRetries(n)` to retry on failure.
+- **Environment**: Use `AddEnv` to set environment variables.
+
+---
+
+## Orchestrating Workflows (DAG)
+
+A `Workflow` is a collection of tasks with dependencies, executed in parallel where possible (DAG scheduling).
+
+```go
+workflow := iapetus.NewWorkflow("cluster-setup", zap.NewNop()).
+    AddTask(*step1).
+    AddTask(*step2).
+    AddPreRun(func(w *iapetus.Workflow) error {
+        // Setup logic before tasks run
+        return nil
+    }).
+    AddPostRun(func(w *iapetus.Workflow) error {
+        // Cleanup logic after all tasks
+        return nil
     })
 
-// Run the workflow
 if err := workflow.Run(); err != nil {
     log.Fatalf("Workflow failed: %v", err)
 }
 ```
 
-### Assertions
+- **Parallelism**: Tasks run in parallel, respecting dependencies (`Depends` field).
+- **Hooks**: Register hooks for task start, success, failure, and completion.
+- **Observability**: Pluggable logger (defaults to zap), all events are logged.
 
-The package provides several built-in assertion functions:
+---
 
-- `AssertByExitCode`: Validates the exit code of a step.
-- `AssertByOutputString`: Compares the actual output string with the expected output.
-- `AssertByOutputJson`: Compares JSON outputs, allowing for specific node skipping.
-- `AssertByContains`: Checks if the actual output contains specific strings.
-- `AssertByError`: Validates the error message.
-- `AssertByRegexp`: Validates the output with regx
+## Assertions
 
+Built-in assertion functions:
 
-### Custom Assertions
+- `AssertByExitCode`: Validates the exit code
+- `AssertByOutputString`: Exact string match
+- `AssertByOutputJson`: JSON comparison (with node skipping)
+- `AssertByContains`: Substring presence
+- `AssertByError`: Error message validation (substring or regexp)
+- `AssertByRegexp`: Output matches regular expression
 
-You can add custom assertions to a step using the `AddAssertion` method. A custom assertion is a function that takes a `*Step` as an argument and returns an error if the assertion fails.
-
-```go
-step.AddAssertion(func(i *iapetus.Step) error {
-    if i.Actual.ExitCode != 0 {
-        return fmt.Errorf("expected exit code 0, but got %d", i.Actual.ExitCode)
-    }
-    return nil
-})
-```
-
-### Key Features ⭐
-
-#### Retries 🔄
-Tasks can be configured with retries for handling transient failures:
+**Example:**
 
 ```go
-task := iapetus.NewTask("flaky-operation", timeout, 0).
-    AddCommand("some-command").
-    SetRetries(3)  // Will retry up to 3 times
+task.AddAssertion(iapetus.AssertByExitCode).
+     AddAssertion(iapetus.AssertByContains("Ready"))
 ```
 
-#### Built-in Assertions ✅
-```go
-task.AddAssertion(iapetus.AssertByExitCode).        // Check exit code
-    AddAssertion(iapetus.AssertByContains("Ready")) // Check output contains
-```
+---
 
-Available assertions:
-- `AssertByExitCode`: Validates command exit code
-- `AssertByOutputString`: Exact string matching
-- `AssertByOutputJson`: JSON comparison with node skipping
-- `AssertByContains`: Substring presence check
-- `AssertByError`: Error message validation
-- `AssertByRegexp`: Regular expression matching
+## Custom Assertions
 
-#### Custom Assertions 🎯
+Add your own validation logic:
+
 ```go
 task.AddAssertion(func(t *iapetus.Task) error {
     if !strings.Contains(t.Actual.Output, "success") {
@@ -241,10 +130,46 @@ task.AddAssertion(func(t *iapetus.Task) error {
 })
 ```
 
-## Contributing 👥
+---
 
-Contributions to the `iapetus` package are welcome. Please submit issues or pull requests via the project's repository.
+## Advanced Features
+
+- **Parallel DAG scheduling**: Tasks run as soon as dependencies are met
+- **Observability hooks**: Register multiple listeners for task lifecycle events
+- **Stress-tested**: Handles thousands of tasks, deep dependency chains
+- **Property-based testing**: Ensures correctness for random DAGs and workflows
+- **Pluggable logging**: Uses [zap](https://github.com/uber-go/zap) by default, can be replaced
+- **Extensible**: Add custom hooks, assertions, and workflow logic
+
+---
+
+## Extensibility
+
+- **Hooks**: Register multiple hooks for task start, success, failure, and completion:
+
+```go
+workflow.AddOnTaskStartHook(func(task *iapetus.Task) { /* ... */ })
+workflow.AddOnTaskSuccessHook(func(task *iapetus.Task) { /* ... */ })
+workflow.AddOnTaskFailureHook(func(task *iapetus.Task, err error) { /* ... */ })
+workflow.AddOnTaskCompleteHook(func(task *iapetus.Task) { /* ... */ })
+```
+
+- **Custom Pre/Post Run**: Use `AddPreRun` and `AddPostRun` for workflow-level setup/teardown.
+
+---
+
+## Contributing & Testing
+
+- **Contributions welcome!** Please open issues or PRs.
+- **Testing**: Run all tests (including stress and property-based):
+
+```sh
+go test -v ./...
+```
+
+---
 
 ## License 📄
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License. See [LICENSE](LICENSE) for details.
+

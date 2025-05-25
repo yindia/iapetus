@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // Task represents a configurable command execution unit that can be run with retries
@@ -22,11 +23,11 @@ type Task struct {
 	Env           []string            // Additional environment variables
 	WorkingDir    string              // Working dir
 	Expected      Output              // Expected command output and behavior
+	Depends       []string            // Dependencies for the task
 	Actual        Output              // Actual command output and results
 	SkipJsonNodes []string            // JSON nodes to ignore in comparisons
 	Asserts       []func(*Task) error // Custom validation functions
-	LogLevel      int
-	logger        Logger // Add this field
+	logger        *zap.Logger
 	// PreRun is executed before any tasks. It can be used for task initialization
 	PreRun func(w *Task) error // PreRun is executed before any tasks
 	// PostRun is executed after all tasks complete successfully
@@ -45,14 +46,17 @@ type Output struct {
 
 // NewTask creates a new Task instance with the specified name and timeout.
 // If name is empty, a UUID-based name will be generated.
-func NewTask(name string, timeout time.Duration, level *LogLevel) *Task {
+func NewTask(name string, timeout time.Duration, logger *zap.Logger) *Task {
 	if name == "" {
 		name = "task-" + uuid.New().String()
+	}
+	if logger == nil {
+		logger, _ = zap.NewProduction()
 	}
 	return &Task{
 		Name:    name,
 		Timeout: timeout,
-		logger:  NewDefaultLogger(level), // Initialize with default logger
+		logger:  logger,
 	}
 }
 
@@ -60,13 +64,11 @@ func NewTask(name string, timeout time.Duration, level *LogLevel) *Task {
 // It captures the command output and runs all registered assertiont.
 // Returns an error if any assertion fails after all retry attemptt.
 func (t *Task) Run() error {
-
 	if t.Name == "" {
 		t.Name = "task-" + uuid.New().String()
 	}
 	if t.logger == nil {
-		logLevel := LogLevel(t.LogLevel)
-		t.SetLogger(&logLevel)
+		t.logger, _ = zap.NewProduction()
 	}
 	if t.Timeout == 0*time.Second {
 		t.Timeout = 100 * time.Second
@@ -74,37 +76,33 @@ func (t *Task) Run() error {
 	if t.Retries == 0 {
 		t.Retries = 1
 	}
-	t.logger.Info("Running task: %s", t.Name)
-
+	t.logger.Info("Running task", zap.String("task", t.Name))
 	if t.PreRun != nil {
-		t.logger.Debug("Starting pre-run hook for workflow: %s", t.Name)
+		t.logger.Debug("Starting pre-run hook", zap.String("task", t.Name))
 		if err := t.PreRun(t); err != nil {
-			t.logger.Error("Pre-run hook failed for workflow %s: %v", t.Name, err)
-			return fmt.Errorf("pre-run hook failed for workflow %s: %v", t.Name, err)
+			t.logger.Error("Pre-run hook failed", zap.String("task", t.Name), zap.Error(err))
+			return fmt.Errorf("pre-run hook failed for task %s: %v", t.Name, err)
 		}
 	}
-
 	var lastErr error
 	for attempt := 1; attempt <= t.Retries; attempt++ {
-		t.logger.Debug("Attempt %d of %d for task: %s", attempt, t.Retries, t.Name)
-
+		t.logger.Debug("Attempt", zap.Int("attempt", attempt), zap.Int("retries", t.Retries), zap.String("task", t.Name))
 		if err := t.executeCommand(); err != nil {
 			lastErr = err
 			if attempt < t.Retries {
-				t.logger.Debug("Retrying task %s after failure", t.Name)
+				t.logger.Debug("Retrying task after failure", zap.String("task", t.Name))
 				time.Sleep(1 * time.Second)
 				continue
 			}
 			return fmt.Errorf("task %s failed after %d attempts: %w", t.Name, t.Retries, err)
 		}
-		return nil // Success, exit retry loop
+		return nil
 	}
-
 	if t.PostRun != nil {
-		t.logger.Debug("Starting post-run hook for workflow: %s", t.Name)
+		t.logger.Debug("Starting post-run hook", zap.String("task", t.Name))
 		if err := t.PostRun(t); err != nil {
-			t.logger.Error("Post-run hook failed for workflow %s: %v", t.Name, err)
-			return fmt.Errorf("post-run hook failed for workflow %s: %v", t.Name, err)
+			t.logger.Error("Post-run hook failed", zap.String("task", t.Name), zap.Error(err))
+			return fmt.Errorf("post-run hook failed for task %s: %v", t.Name, err)
 		}
 	}
 	return lastErr
@@ -114,35 +112,29 @@ func (t *Task) Run() error {
 func (t *Task) executeCommand() error {
 	ctx, cancel := context.WithTimeout(context.Background(), t.Timeout)
 	defer cancel()
-
 	cmd := exec.CommandContext(ctx, t.Command, t.Args...)
 	cmd.Env = append(os.Environ(), t.Env...)
 	if t.WorkingDir != "" {
 		cmd.Dir = t.WorkingDir
 	}
-
-	t.logger.Debug("Command: %s", t.Command+" "+strings.Join(t.Args, " "))
+	t.logger.Debug("Command", zap.String("cmd", t.Command+" "+strings.Join(t.Args, " ")))
 	output, err := cmd.CombinedOutput()
 	t.Actual.Output = string(output)
 	t.Actual.ExitCode = getExitCode(err)
-
 	if err != nil {
 		t.Actual.Error = err.Error()
 		if ctx.Err() == context.DeadlineExceeded {
-			t.logger.Error("Task %s timed out after %v", t.Name, t.Timeout)
+			t.logger.Error("Task timed out", zap.String("task", t.Name), zap.Duration("timeout", t.Timeout))
 			return fmt.Errorf("task %s timed out after %v", t.Name, t.Timeout)
 		}
-		t.logger.Error("Error executing task %s: %v", t.Name, err)
+		t.logger.Error("Error executing task", zap.String("task", t.Name), zap.Error(err))
 	}
-
-	// Run assertions
-	for _, assert := range t.Asserts {
-		if err := assert(t); err != nil {
-			t.logger.Error("Assertion failed for task %s: %v", t.Name, err)
-			return err
-		}
+	// Use RunAssertions to aggregate all assertion errors
+	err = RunAssertions(t)
+	if err != nil {
+		t.logger.Error("Assertion(s) failed", zap.String("task", t.Name), zap.Error(err))
+		return err
 	}
-
 	return nil
 }
 
@@ -180,12 +172,6 @@ func (t *Task) AddExpected(expected Output) *Task {
 
 func (t *Task) AddCommand(command string) *Task {
 	t.Command = command
-	return t
-}
-
-// Add method to set custom logger
-func (t *Task) SetLogger(level *LogLevel) *Task {
-	t.logger = NewDefaultLogger(level)
 	return t
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // Package iapetus provides workflow orchestration capabilities
@@ -37,71 +38,149 @@ type Workflow struct {
 	// Steps contains the ordered list of tasks to execute
 	Steps []Task // Steps contains the ordered list of tasks to execute
 
-	LogLevel int
-	// logger handles workflow execution logging
-	logger Logger
+	logger *zap.Logger
+
+	// Observability hooks (can be set for testing or custom behavior)
+	OnTaskStartHooks    []func(*Task)
+	OnTaskSuccessHooks  []func(*Task)
+	OnTaskFailureHooks  []func(*Task, error)
+	OnTaskCompleteHooks []func(*Task)
 }
 
 // NewWorkflow creates a new Workflow instance with the given name.
 // If name is empty, a UUID-based name will be generated during execution.
-func NewWorkflow(name string, level *LogLevel) *Workflow {
-	return &Workflow{
-		Name:   name,
-		logger: NewDefaultLogger(level),
+func NewWorkflow(name string, logger *zap.Logger) *Workflow {
+	if logger == nil {
+		logger, _ = zap.NewProduction()
 	}
-}
-
-// SetLogger allows users to configure a custom logger
-func (w *Workflow) SetLogger(level *LogLevel) *Workflow {
-	w.logger = NewDefaultLogger(level)
-	return w
+	return &Workflow{
+		Name:                name,
+		logger:              logger,
+		OnTaskStartHooks:    []func(*Task){},
+		OnTaskSuccessHooks:  []func(*Task){},
+		OnTaskFailureHooks:  []func(*Task, error){},
+		OnTaskCompleteHooks: []func(*Task){},
+	}
 }
 
 // Run executes the workflow by running all tasks in sequence.
 // It handles pre-run and post-run hooks if defined.
 // Returns an error if any step fails.
 func (w *Workflow) Run() error {
-
-	if w.logger == nil {
-		logLevel := LogLevel(w.LogLevel)
-		w.SetLogger(&logLevel)
-	}
-	w.logger.Info("Starting workflow: %s", w.Name)
-
+	w.logger.Info("Starting workflow", zap.String("workflow", w.Name))
 	if w.Name == "" {
 		w.Name = "workflow-" + uuid.New().String()
-		w.logger.Debug("Generated new workflow name: %s", w.Name)
+		w.logger.Debug("Generated new workflow name", zap.String("workflow", w.Name))
 	}
-
 	if w.PreRun != nil {
-		w.logger.Debug("Starting pre-run hook for workflow: %s", w.Name)
+		w.logger.Debug("Starting pre-run hook", zap.String("workflow", w.Name))
 		if err := w.PreRun(w); err != nil {
-			w.logger.Error("Pre-run hook failed for workflow %s: %v", w.Name, err)
+			w.logger.Error("Pre-run hook failed", zap.String("workflow", w.Name), zap.Error(err))
 			return fmt.Errorf("pre-run hook failed for workflow %s: %v", w.Name, err)
 		}
 	}
-	for _, task := range w.Steps {
-		if err := task.Run(); err != nil {
-			// Wrap the error with additional context
-			wfErr := &WorkflowError{
+	dag := NewDag()
+	for i := range w.Steps {
+		task := &w.Steps[i]
+		if err := dag.AddTask(task); err != nil {
+			w.logger.Error("Failed to add task to DAG", zap.String("task", task.Name), zap.Error(err))
+			return &WorkflowError{
 				StepName:     task.Name,
 				WorkflowName: w.Name,
 				Err:          err,
 			}
-			w.logger.Error("Error: %v", wfErr)
-			return wfErr
 		}
 	}
-
+	if err := dag.Validate(); err != nil {
+		w.logger.Error("DAG validation failed", zap.Error(err))
+		return &WorkflowError{
+			StepName:     "DAG",
+			WorkflowName: w.Name,
+			Err:          err,
+		}
+	}
+	err := w.runParallelDAG(dag)
 	if w.PostRun != nil {
-		w.logger.Debug("Starting post-run hook for workflow: %s", w.Name)
-		if err := w.PostRun(w); err != nil {
-			w.logger.Error("Post-run hook failed for workflow %s: %v", w.Name, err)
-			return fmt.Errorf("post-run hook failed for workflow %s: %v", w.Name, err)
+		w.logger.Debug("Starting post-run hook", zap.String("workflow", w.Name))
+		if postErr := w.PostRun(w); postErr != nil {
+			w.logger.Error("Post-run hook failed", zap.String("workflow", w.Name), zap.Error(postErr))
+			return fmt.Errorf("post-run hook failed for workflow %s: %v", w.Name, postErr)
 		}
 	}
-	w.logger.Info("Completed workflow: %s", w.Name)
-	return nil
+	w.logger.Info("Completed workflow", zap.String("workflow", w.Name))
+	return err
+}
+
+// runParallelDAG executes the tasks in the DAG in parallel according to dependencies.
+// Returns the first error encountered, or nil if all tasks succeed.
+func (w *Workflow) runParallelDAG(dag *DAG) error {
+	order, err := dag.GetTopologicalOrder()
+	if err != nil {
+		w.logger.Error("DAG topological sort failed", zap.Error(err))
+		return &WorkflowError{
+			StepName:     "DAG",
+			WorkflowName: w.Name,
+			Err:          err,
+		}
+	}
+	scheduler := newDagScheduler(w, order)
+	return scheduler.run()
+}
+
+// Add hook registration methods
+func (w *Workflow) AddOnTaskStartHook(hook func(*Task)) *Workflow {
+	w.OnTaskStartHooks = append(w.OnTaskStartHooks, hook)
+	return w
+}
+func (w *Workflow) AddOnTaskSuccessHook(hook func(*Task)) *Workflow {
+	w.OnTaskSuccessHooks = append(w.OnTaskSuccessHooks, hook)
+	return w
+}
+func (w *Workflow) AddOnTaskFailureHook(hook func(*Task, error)) *Workflow {
+	w.OnTaskFailureHooks = append(w.OnTaskFailureHooks, hook)
+	return w
+}
+func (w *Workflow) AddOnTaskCompleteHook(hook func(*Task)) *Workflow {
+	w.OnTaskCompleteHooks = append(w.OnTaskCompleteHooks, hook)
+	return w
+}
+
+// Update initHooks to initialize slices if nil
+func (w *Workflow) initHooks() {
+	if w.OnTaskStartHooks == nil {
+		w.OnTaskStartHooks = []func(*Task){}
+	}
+	if w.OnTaskSuccessHooks == nil {
+		w.OnTaskSuccessHooks = []func(*Task){}
+	}
+	if w.OnTaskFailureHooks == nil {
+		w.OnTaskFailureHooks = []func(*Task, error){}
+	}
+	if w.OnTaskCompleteHooks == nil {
+		w.OnTaskCompleteHooks = []func(*Task){}
+	}
+}
+
+// Observability hooks (call all registered hooks)
+func (w *Workflow) OnTaskStart(task *Task) {
+	for _, hook := range w.OnTaskStartHooks {
+		hook(task)
+	}
+}
+func (w *Workflow) OnTaskSuccess(task *Task) {
+	for _, hook := range w.OnTaskSuccessHooks {
+		hook(task)
+	}
+}
+func (w *Workflow) OnTaskFailure(task *Task, err error) {
+	for _, hook := range w.OnTaskFailureHooks {
+		hook(task, err)
+	}
+}
+func (w *Workflow) OnTaskComplete(task *Task) {
+	for _, hook := range w.OnTaskCompleteHooks {
+		hook(task)
+	}
 }
 
 // AddTask appends a new task to the workflow's sequence of steps.
