@@ -3,11 +3,28 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/yindia/iapetus.svg)](https://pkg.go.dev/github.com/yindia/iapetus)
 [![Go Report Card](https://goreportcard.com/badge/github.com/yindia/iapetus)](https://goreportcard.com/report/github.com/yindia/iapetus)
 
-A robust, extensible Go package for orchestrating and validating command-line workflows with parallel DAG execution, built-in assertions, and advanced observability.
+**A robust, extensible Go package for orchestrating and validating command-line workflows with parallel DAG execution, built-in assertions, and advanced observability.**
 
 ---
 
-## Overview 📋
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Defining Tasks](#defining-tasks)
+- [Workflow Orchestration](#workflow-orchestration)
+- [Assertions](#assertions)
+- [Advanced Usage](#advanced-usage)
+- [Extensibility](#extensibility)
+- [YAML/Config Integration](#yamlconfig-integration)
+- [Testing & Reliability](#testing--reliability)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## Features
 
 - ⚡ **Parallel, dependency-aware workflow execution** (DAG-based)
 - ✅ **Built-in and custom assertions** for validating outputs
@@ -15,10 +32,12 @@ A robust, extensible Go package for orchestrating and validating command-line wo
 - 🏗️ **Fluent builder pattern** for readable workflow and task construction
 - 🔍 **Observability hooks** and pluggable logging (uses [zap](https://github.com/uber-go/zap))
 - 🧪 **Battle-tested**: stress, property-based, and concurrency tests
+- 🐳 **Container-ready**: Support for specifying container images and environment variables
+- 🧩 **Extensible**: Add custom hooks, assertions, and workflow logic
 
 ---
 
-## Installation 💻
+## Installation
 
 ```sh
 go get github.com/yindia/iapetus
@@ -26,15 +45,40 @@ go get github.com/yindia/iapetus
 
 ---
 
-## Defining Tasks: Two Approaches
+## Quick Start
+
+```go
+import (
+    "github.com/yindia/iapetus"
+    "go.uber.org/zap"
+    "time"
+)
+
+func main() {
+    task := iapetus.NewTask("verify-service", 5*time.Second, nil).
+        AddCommand("curl").
+        AddArgs("-f", "http://localhost:8080").
+        AssertExitCode(0).
+        AssertOutputContains("Success")
+
+    workflow := iapetus.NewWorkflow("service-check", zap.NewExample()).
+        AddTask(*task)
+
+    if err := workflow.Run(); err != nil {
+        panic(err)
+    }
+}
+```
+
+---
+
+## Defining Tasks
 
 You can define tasks using either **struct literals** or the **builder/fluent API**. Both are fully supported and interoperable.
 
-### 1. Struct Literal Style
+### Struct Literal Style
 
 ```go
-import "github.com/yindia/iapetus"
-
 task := &iapetus.Task{
     Name:    "verify-service",
     Command: "curl",
@@ -43,47 +87,31 @@ task := &iapetus.Task{
         iapetus.AssertExitCode(0),
         iapetus.AssertOutputContains("Success"),
     },
+    Image:   "alpine:3.18", // Optional: for containerized execution
+    Env:     []string{"FOO=bar"},
+    EnvMap:  map[string]string{"FOO": "bar"},
 }
 ```
 
-- **Preferred:** Use the new assertion functions that accept expected values directly.
-- No need to set `Expected` fields for assertions.
-
-### 2. Builder/Fluent API Style
+### Builder/Fluent API Style
 
 ```go
-import "github.com/yindia/iapetus"
-
 task := iapetus.NewTask("verify-service", 5*time.Second, nil).
     AddCommand("curl").
     AddArgs("-f", "http://localhost:8080").
     AssertExitCode(0).
     AssertOutputContains("Success").
-    AssertOutputEquals("expected output").
-    AssertOutputJsonEquals(`{"foo":"bar"}`).
-    AssertOutputMatchesRegexp("pattern").
-    Expect().OutputContains("Success").ExitCode(0).Done()
+    AddImage("alpine:3.18").
+    AddEnv("FOO=bar").
+    AddEnvMap(map[string]string{"FOO": "bar"})
 ```
 
-- Pass expected values directly to assertion methods—no need to set `Expected` fields.
+- **Preferred:** Use the new assertion functions that accept expected values directly.
 - Use the fluent `Expect()` DSL for readable, chainable assertions.
 
 ---
 
-## Assertion Usage: Summary Table
-
-| Approach         | Example Usage                                                                 | When to Use                |
-|------------------|-------------------------------------------------------------------------------|----------------------------|
-| Struct Literal   | `Asserts: []func(*Task) error{AssertExitCode(0), AssertOutputContains("foo")}`| Static config, YAML, tests |
-| Builder/Fluent   | `.AssertExitCode(0).AssertOutputContains("foo")`                             | Programmatic, chaining     |
-| Assertion DSL    | `.Expect().ExitCode(0).OutputContains("foo").Done()`                        | Complex, readable chains   |
-
-- **All approaches are interoperable**: you can mix and match as needed.
-- **Preferred:** Use the new assertion functions with expected values as arguments.
-
----
-
-## Orchestrating Workflows (DAG)
+## Workflow Orchestration
 
 A `Workflow` is a collection of tasks with dependencies, executed in parallel where possible (DAG scheduling).
 
@@ -111,7 +139,9 @@ if err := workflow.Run(); err != nil {
 
 ---
 
-## Built-in Assertions
+## Assertions
+
+### Built-in Assertions
 
 - `AssertExitCode(expected int)`: Validates the exit code
 - `AssertOutputEquals(expected string)`: Exact string match
@@ -134,14 +164,13 @@ task.AddAssertion(func(t *iapetus.Task) error {
 
 ---
 
-## Advanced Features
+## Advanced Usage
 
-- **Parallel DAG scheduling**: Tasks run as soon as dependencies are met
-- **Observability hooks**: Register multiple listeners for task lifecycle events
-- **Stress-tested**: Handles thousands of tasks, deep dependency chains
-- **Property-based testing**: Ensures correctness for random DAGs and workflows
-- **Pluggable logging**: Uses [zap](https://github.com/uber-go/zap) by default, can be replaced
-- **Extensible**: Add custom hooks, assertions, and workflow logic
+- **Retries**: Set `Retries` on a task to automatically retry on assertion failure.
+- **Timeouts**: Set `Timeout` for each task to prevent hangs.
+- **Container Image**: Use the `Image` field to specify a container image (for future containerized runners).
+- **Environment Variables**: Use `Env` (list) or `EnvMap` (map) for environment configuration.
+- **PreRun/PostRun Hooks**: Use `PreRun` and `PostRun` for setup/teardown logic at both workflow and task levels.
 
 ---
 
@@ -160,18 +189,62 @@ workflow.AddOnTaskCompleteHook(func(task *iapetus.Task) { /* ... */ })
 
 ---
 
-## Contributing & Testing
+## YAML/Config Integration
 
-- **Contributions welcome!** Please open issues or PRs.
-- **Testing**: Run all tests (including stress and property-based):
+You can easily marshal/unmarshal workflows and tasks to/from YAML or JSON for config-driven orchestration. Example YAML:
+
+```yaml
+name: my-workflow
+env_map:
+  GLOBAL_VAR: value
+steps:
+  - name: step1
+    command: echo
+    args: ["hello"]
+    asserts:
+      - exit_code: 0
+    image: alpine:3.18
+    env:
+      - FOO=bar
+```
+
+> **Note:** For custom assertion functions, you will need to register them in Go code after unmarshalling.
+
+---
+
+## Testing & Reliability
+
+- **Battle-tested**: Includes stress, property-based, and concurrency tests.
+- **Run all tests**:
 
 ```sh
 go test -v ./...
 ```
 
+- **CI/CD Ready**: Designed for integration into CI/CD pipelines and automation frameworks.
+
 ---
 
-## License 📄
+## Contributing
+
+- **Contributions welcome!** Please open issues or PRs.
+- **Feature requests** and bug reports are encouraged.
+
+---
+
+## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+## Links
+
+- [GoDoc](https://pkg.go.dev/github.com/yindia/iapetus)
+- [Go Report Card](https://goreportcard.com/report/github.com/yindia/iapetus)
+
+---
+
+**iapetus** is built for reliability, extensibility, and developer happiness.  
+If you use it in your project, let us know and consider contributing!
 
