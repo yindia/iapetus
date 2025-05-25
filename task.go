@@ -15,19 +15,19 @@ import (
 // Task represents a configurable command execution unit that can be run with retries
 // and validated against expected outputs and custom assertiont.
 type Task struct {
-	Name          string              // Unique identifier for the task
-	Command       string              // The command to execute
-	Retries       int                 // Number of retry attempts if assertions fail
-	Args          []string            // Command line arguments
-	Timeout       time.Duration       // Maximum execution time
-	Env           []string            // Additional environment variables
-	WorkingDir    string              // Working dir
-	Expected      Output              // Expected command output and behavior
-	Depends       []string            // Dependencies for the task
-	Actual        Output              // Actual command output and results
-	SkipJsonNodes []string            // JSON nodes to ignore in comparisons
-	Asserts       []func(*Task) error // Custom validation functions
-	logger        *zap.Logger
+	Name       string              // Unique identifier for the task
+	Command    string              // The command to execute
+	Retries    int                 // Number of retry attempts if assertions fail
+	Args       []string            // Command line arguments
+	Timeout    time.Duration       // Maximum execution time
+	Env        []string            `json:"env" yaml:"env"`         // Additional environment variables (KEY=VALUE)
+	EnvMap     map[string]string   `json:"env_map" yaml:"env_map"` // Alternative env representation (key-value)
+	Image      string              `json:"image" yaml:"image"`     // Container image to use for the task (optional)
+	WorkingDir string              // Working dir
+	Depends    []string            // Dependencies for the task
+	Actual     Output              // Actual command output and results
+	Asserts    []func(*Task) error // Custom validation functions
+	logger     *zap.Logger
 	// PreRun is executed before any tasks. It can be used for task initialization
 	PreRun func(w *Task) error // PreRun is executed before any tasks
 	// PostRun is executed after all tasks complete successfully
@@ -57,6 +57,7 @@ func NewTask(name string, timeout time.Duration, logger *zap.Logger) *Task {
 		Name:    name,
 		Timeout: timeout,
 		logger:  logger,
+		EnvMap:  make(map[string]string), // Initialize EnvMap
 	}
 }
 
@@ -145,11 +146,6 @@ func (t *Task) AddAssertion(assert func(*Task) error) *Task {
 	return t
 }
 
-func (t *Task) AddContains(contains ...string) *Task {
-	t.Expected.Contains = append(t.Expected.Contains, contains...)
-	return t
-}
-
 func (t *Task) AddEnv(env ...string) *Task {
 	t.Env = append(t.Env, env...)
 	return t
@@ -157,16 +153,6 @@ func (t *Task) AddEnv(env ...string) *Task {
 
 func (t *Task) AddArgs(args ...string) *Task {
 	t.Args = append(t.Args, args...)
-	return t
-}
-
-func (t *Task) AddSkipJsonNodes(skipJsonNodes ...string) *Task {
-	t.SkipJsonNodes = append(t.SkipJsonNodes, skipJsonNodes...)
-	return t
-}
-
-func (t *Task) AddExpected(expected Output) *Task {
-	t.Expected = expected
 	return t
 }
 
@@ -237,4 +223,16 @@ func (b *TaskAssertionBuilder) OutputMatchesRegexp(pattern string) *TaskAssertio
 // Done returns the parent Task for further chaining
 func (b *TaskAssertionBuilder) Done() *Task {
 	return b.task
+}
+
+// AddImage sets the container image for the task
+func (t *Task) AddImage(image string) *Task {
+	t.Image = image
+	return t
+}
+
+// AddEnvMap sets the EnvMap for the task (overwrites existing)
+func (t *Task) AddEnvMap(envMap map[string]string) *Task {
+	t.EnvMap = envMap
+	return t
 }

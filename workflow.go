@@ -38,6 +38,9 @@ type Workflow struct {
 	// Steps contains the ordered list of tasks to execute
 	Steps []Task // Steps contains the ordered list of tasks to execute
 
+	Image  string            `json:"image" yaml:"image"`     // Container image for the workflow (optional)
+	EnvMap map[string]string `json:"env_map" yaml:"env_map"` // Environment variables for the workflow (key-value)
+
 	logger *zap.Logger
 
 	// Observability hooks (can be set for testing or custom behavior)
@@ -56,6 +59,7 @@ func NewWorkflow(name string, logger *zap.Logger) *Workflow {
 	return &Workflow{
 		Name:                name,
 		logger:              logger,
+		EnvMap:              make(map[string]string), // Initialize EnvMap
 		OnTaskStartHooks:    []func(*Task){},
 		OnTaskSuccessHooks:  []func(*Task){},
 		OnTaskFailureHooks:  []func(*Task, error){},
@@ -182,5 +186,17 @@ func (w *Workflow) AddPreRun(p func(w *Workflow) error) *Workflow {
 
 func (w *Workflow) AddPostRun(p func(w *Workflow) error) *Workflow {
 	w.PostRun = p
+	return w
+}
+
+// AddImage sets the container image for the workflow
+func (w *Workflow) AddImage(image string) *Workflow {
+	w.Image = image
+	return w
+}
+
+// AddEnvMap sets the EnvMap for the workflow (overwrites existing)
+func (w *Workflow) AddEnvMap(envMap map[string]string) *Workflow {
+	w.EnvMap = envMap
 	return w
 }

@@ -28,12 +28,11 @@ func TestWorkflow_SimpleStress(t *testing.T) {
 					depends = []string{fmt.Sprintf("w%d-t%d", wfID, j-1)}
 				}
 				steps = append(steps, Task{
-					Name:     name,
-					Command:  "sh",
-					Args:     []string{"-c", "sleep 0.001"},
-					Depends:  depends,
-					Expected: Output{ExitCode: 0},
-					Asserts:  []func(*Task) error{AssertByExitCode},
+					Name:    name,
+					Command: "sh",
+					Args:    []string{"-c", "sleep 0.001"},
+					Depends: depends,
+					Asserts: []func(*Task) error{AssertExitCode(0)},
 				})
 			}
 			wf := Workflow{Steps: steps, logger: zap.NewNop()}
@@ -68,7 +67,7 @@ func TestWorkflow_AdvancedStress(t *testing.T) {
 					}
 				}
 				// Randomly fail or panic
-				asserts := []func(*Task) error{AssertByExitCode}
+				asserts := []func(*Task) error{AssertExitCode(0)}
 				if r.Float64() < 0.05 {
 					asserts = append(asserts, func(t *Task) error { return fmt.Errorf("random fail") })
 				}
@@ -76,12 +75,11 @@ func TestWorkflow_AdvancedStress(t *testing.T) {
 					asserts = append(asserts, func(t *Task) error { panic("random panic") })
 				}
 				steps = append(steps, Task{
-					Name:     name,
-					Command:  "sh",
-					Args:     []string{"-c", "sleep 0.001"},
-					Depends:  depends,
-					Expected: Output{ExitCode: 0},
-					Asserts:  asserts,
+					Name:    name,
+					Command: "sh",
+					Args:    []string{"-c", "sleep 0.001"},
+					Depends: depends,
+					Asserts: asserts,
 				})
 			}
 			wf := Workflow{Steps: steps, logger: zap.NewNop()}
