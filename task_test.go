@@ -132,3 +132,53 @@ func TestTask_ExpectDSL(t *testing.T) {
 		t.Errorf("expected error for wrong exit code, got nil")
 	}
 }
+
+func TestTask_EnvVars(t *testing.T) {
+	t.Run("only Env", func(t *testing.T) {
+		task := &Task{
+			Command: "sh",
+			Args:    []string{"-c", "echo $FOO"},
+			Env:     []string{"FOO=bar"},
+			Asserts: []func(*Task) error{AssertOutputEquals("bar\n")},
+		}
+		if err := task.Run(); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	})
+
+	t.Run("only EnvMap", func(t *testing.T) {
+		task := &Task{
+			Command: "sh",
+			Args:    []string{"-c", "echo $FOO"},
+			EnvMap:  map[string]string{"FOO": "baz"},
+			Asserts: []func(*Task) error{AssertOutputEquals("baz\n")},
+		}
+		if err := task.Run(); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	})
+
+	t.Run("Env and EnvMap, EnvMap wins", func(t *testing.T) {
+		task := &Task{
+			Command: "sh",
+			Args:    []string{"-c", "echo $FOO"},
+			Env:     []string{"FOO=bar"},
+			EnvMap:  map[string]string{"FOO": "baz"},
+			Asserts: []func(*Task) error{AssertOutputEquals("baz\n")},
+		}
+		if err := task.Run(); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	})
+
+	t.Run("no envs, default", func(t *testing.T) {
+		task := &Task{
+			Command: "sh",
+			Args:    []string{"-c", "echo $FOO"},
+			Asserts: []func(*Task) error{AssertOutputEquals("\n")},
+		}
+		if err := task.Run(); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+	})
+}

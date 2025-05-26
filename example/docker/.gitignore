@@ -1,0 +1,10 @@
+# Ignore Go binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+
+# Output files
+*.out 

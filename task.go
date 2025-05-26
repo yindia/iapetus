@@ -132,7 +132,30 @@ func (t *Task) executeCommand() error {
 	ctx, cancel := context.WithTimeout(context.Background(), t.Timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, t.Command, t.Args...)
-	cmd.Env = append(os.Environ(), t.Env...)
+
+	// Merge environment variables: os.Environ + t.Env + t.EnvMap (EnvMap takes precedence)
+	envMap := map[string]string{}
+	for _, kv := range os.Environ() {
+		parts := strings.SplitN(kv, "=", 2)
+		if len(parts) == 2 {
+			envMap[parts[0]] = parts[1]
+		}
+	}
+	for _, kv := range t.Env {
+		parts := strings.SplitN(kv, "=", 2)
+		if len(parts) == 2 {
+			envMap[parts[0]] = parts[1]
+		}
+	}
+	for k, v := range t.EnvMap {
+		envMap[k] = v
+	}
+	finalEnv := make([]string, 0, len(envMap))
+	for k, v := range envMap {
+		finalEnv = append(finalEnv, k+"="+v)
+	}
+	cmd.Env = finalEnv
+
 	if t.WorkingDir != "" {
 		cmd.Dir = t.WorkingDir
 	}
