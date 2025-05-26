@@ -3,6 +3,7 @@ package iapetus
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -116,7 +117,8 @@ func TestDagScheduler_ErrorPropagation(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	tasks := []*Task{
 		{
-			Name: "a",
+			Name:    "a",
+			Command: "true",
 			Asserts: []func(*Task) error{
 				func(t *Task) error {
 					wg.Done()
@@ -125,7 +127,8 @@ func TestDagScheduler_ErrorPropagation(t *testing.T) {
 			},
 		},
 		{
-			Name: "b",
+			Name:    "b",
+			Command: "true",
 			Asserts: []func(*Task) error{
 				func(t *Task) error {
 					time.Sleep(100 * time.Millisecond)
@@ -157,7 +160,8 @@ func TestDagScheduler_SingleTask(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	task := &Task{
-		Name: "a",
+		Name:    "a",
+		Command: "true",
 		Asserts: []func(*Task) error{
 			func(t *Task) error { wg.Done(); return nil },
 		},
@@ -178,7 +182,8 @@ func TestDagScheduler_SingleTask(t *testing.T) {
 func TestDagScheduler_TaskPanic(t *testing.T) {
 	w := NewWorkflow("panic-test", zap.NewNop())
 	panicTask := &Task{
-		Name: "panic-task",
+		Name:    "panic-task",
+		Command: "true",
 		Asserts: []func(*Task) error{
 			func(t *Task) error {
 				panic("simulated panic")
@@ -197,7 +202,8 @@ func TestDagScheduler_ContextCancellation(t *testing.T) {
 	// Use a done channel to simulate cancellation
 	done := make(chan struct{})
 	blocker := &Task{
-		Name: "blocker",
+		Name:    "blocker",
+		Command: "true",
 		Asserts: []func(*Task) error{
 			func(t *Task) error {
 				select {
@@ -238,21 +244,24 @@ func TestDagScheduler_ObservabilityHooks(t *testing.T) {
 	w.AddOnTaskCompleteHook(func(task *Task) { mu.Lock(); calls = append(calls, "complete:"+task.Name); mu.Unlock() })
 	tasks := []*Task{
 		{
-			Name: "ok",
+			Name:    "ok",
+			Command: "true",
 			Asserts: []func(*Task) error{
 				func(t *Task) error { return nil },
 			},
 		},
 		{
-			Name: "fail",
+			Name:    "fail",
+			Command: "true",
 			Asserts: []func(*Task) error{
 				func(t *Task) error { return errors.New("fail") },
 			},
 		},
 	}
 	ds := newDagScheduler(w, tasks)
-	if err := ds.run(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	err := ds.run()
+	if err == nil {
+		t.Fatalf("expected error, got nil")
 	}
 	// Check that all hooks were called for both tasks
 	mu.Lock()
@@ -283,7 +292,8 @@ func TestDagScheduler_NoGoroutineLeak(t *testing.T) {
 	tasks := []*Task{}
 	for i := 0; i < 10; i++ {
 		task := &Task{
-			Name:    "t" + string(rune(i)),
+			Name:    fmt.Sprintf("t%d", i),
+			Command: "true",
 			Asserts: []func(*Task) error{func(t *Task) error { wg.Done(); return nil }},
 		}
 		tasks = append(tasks, task)
