@@ -197,3 +197,40 @@ workflow.AddOnTaskSuccessHook(func(task *iapetus.Task) { /* ... */ })
 workflow.AddOnTaskFailureHook(func(task *iapetus.Task, err error) { /* ... */ })
 workflow.AddOnTaskCompleteHook(func(task *iapetus.Task) { /* ... */ })
 ```
+
+---
+
+## Contributing
+
+We welcome contributions! To get started with development, we recommend using [pixi](https://pixi.sh/) for a reproducible environment.
+
+### Development Environment Setup
+
+1. **Install [pixi](https://pixi.sh/):**
+   - Follow the instructions at https://pixi.sh/ to install pixi on your system.
+
+2. **Enter the development environment:**
+   - Run:
+     ```sh
+     pixi shell
+     ```
+   - This will drop you into a shell with all dependencies and tools available.
+
+3. **Run development commands with the `pixi` prefix:**
+   - For example, to run tests:
+     ```sh
+     pixi run go test ./...
+     ```
+   - To run linters:
+     ```sh
+     pixi run golangci-lint run ./...
+     ```
+
+4. **Standard Go commands also work inside `pixi shell`.**
+
+- Please open issues or pull requests for bugs, features, or improvements.
+- Follow conventional commit messages and keep code well-tested.
+
+---
+
+## License

@@ -292,6 +292,21 @@ func AssertPodsExist(t *iapetus.Task) error {
 func main() {
 	// Build the DAG workflow with advanced assertions and dependencies
 	workflow := iapetus.NewWorkflow("K8s DAG Example", zap.NewNop())
+
+	// Register extensibility hooks for observability
+	workflow.AddOnTaskStartHook(func(task *iapetus.Task) {
+		fmt.Printf("[HOOK] Task started: %s\n", task.Name)
+	})
+	workflow.AddOnTaskSuccessHook(func(task *iapetus.Task) {
+		fmt.Printf("[HOOK] Task succeeded: %s\n", task.Name)
+	})
+	workflow.AddOnTaskFailureHook(func(task *iapetus.Task, err error) {
+		fmt.Printf("[HOOK] Task failed: %s, error: %v\n", task.Name, err)
+	})
+	workflow.AddOnTaskCompleteHook(func(task *iapetus.Task) {
+		fmt.Printf("[HOOK] Task completed: %s\n", task.Name)
+	})
+
 	workflow.Steps = []iapetus.Task{
 		TASK_CREATE_KIND_CLUSTER,
 		TASK_CREATE_NS_A,
