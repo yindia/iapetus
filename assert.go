@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 
+	"errors"
+
 	jd "github.com/josephburnett/jd/lib"
 )
 
@@ -87,15 +89,15 @@ func AssertOutputJsonEquals(expected string, skipJsonNodes ...string) func(*Task
 			return fmt.Errorf("failed to parse output: %w", err)
 		}
 		diff := expectation.Diff(parsedOutput)
-		var errors []string
+		var errs []string
 		for _, d := range diff {
 			if shouldSkipPath(d.Path, skipJsonNodes) {
 				continue
 			}
-			errors = append(errors, fmt.Sprintf("mismatch at path %v: expected %v, got %v", d.Path, d.NewValues, d.OldValues))
+			errs = append(errs, fmt.Sprintf("mismatch at path %v: expected %v, got %v", d.Path, d.NewValues, d.OldValues))
 		}
-		if len(errors) > 0 {
-			return fmt.Errorf(strings.Join(errors, "; "))
+		if len(errs) > 0 {
+			return errors.New(strings.Join(errs, "; "))
 		}
 		return nil
 	}

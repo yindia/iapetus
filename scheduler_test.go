@@ -107,7 +107,7 @@ func TestDagScheduler_Dependencies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !(order[0] == "a" && order[1] == "b") {
+	if order[0] != "a" || order[1] != "b" {
 		t.Errorf("expected a before b, got %v", order)
 	}
 }
@@ -251,7 +251,9 @@ func TestDagScheduler_ObservabilityHooks(t *testing.T) {
 		},
 	}
 	ds := newDagScheduler(w, tasks)
-	ds.run()
+	if err := ds.run(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	// Check that all hooks were called for both tasks
 	mu.Lock()
 	defer mu.Unlock()
