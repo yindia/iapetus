@@ -51,7 +51,11 @@ go get github.com/yindia/iapetus
 
 ## Quick Start
 
+Here's how to get started with iapetus in just a few lines of Go:
+
 ```go
+package main
+
 import (
     "github.com/yindia/iapetus"
     "go.uber.org/zap"
@@ -59,20 +63,25 @@ import (
 )
 
 func main() {
-    task := iapetus.NewTask("verify-service", 5*time.Second, nil).
-        AddCommand("curl").
-        AddArgs("-f", "http://localhost:8080").
-        AssertExitCode(0).
-        AssertOutputContains("Success")
+    // Define a task that runs a shell command and asserts its output
+    task := iapetus.NewTask("hello-world", 2*time.Second, nil).
+        AddCommand("echo").
+        AddArgs("Hello, world!").
+        AssertOutputContains("Hello")
 
-    workflow := iapetus.NewWorkflow("service-check", zap.NewExample()).
+    // Create a workflow and add the task
+    workflow := iapetus.NewWorkflow("quickstart", zap.NewExample()).
         AddTask(*task)
 
+    // Run the workflow
     if err := workflow.Run(); err != nil {
         panic(err)
     }
 }
 ```
+
+- This example runs `echo "Hello, world!"` and checks that the output contains "Hello".
+- You can add more tasks, assertions, and hooks as needed.
 
 ---
 
@@ -188,67 +197,3 @@ workflow.AddOnTaskSuccessHook(func(task *iapetus.Task) { /* ... */ })
 workflow.AddOnTaskFailureHook(func(task *iapetus.Task, err error) { /* ... */ })
 workflow.AddOnTaskCompleteHook(func(task *iapetus.Task) { /* ... */ })
 ```
-
-- **Custom Pre/Post Run**: Use `AddPreRun` and `AddPostRun` for workflow-level setup/teardown.
-
----
-
-## YAML/Config Integration
-
-You can easily marshal/unmarshal workflows and tasks to/from YAML or JSON for config-driven orchestration. Example YAML:
-
-```yaml
-name: my-workflow
-env_map:
-  GLOBAL_VAR: value
-steps:
-  - name: step1
-    command: echo
-    args: ["hello"]
-    asserts:
-      - exit_code: 0
-    image: alpine:3.18
-    env:
-      - FOO=bar
-```
-
-> **Note:** For custom assertion functions, you will need to register them in Go code after unmarshalling.
-
----
-
-## Testing & Reliability
-
-- **Battle-tested**: Includes stress, property-based, and concurrency tests.
-- **Run all tests**:
-
-```sh
-go test -v ./...
-```
-
-- **CI/CD Ready**: Designed for integration into CI/CD pipelines and automation frameworks.
-
----
-
-## Contributing
-
-- **Contributions welcome!** Please open issues or PRs.
-- **Feature requests** and bug reports are encouraged.
-
----
-
-## License
-
-MIT License. See [LICENSE](LICENSE) for details.
-
----
-
-## Links
-
-- [GoDoc](https://pkg.go.dev/github.com/yindia/iapetus)
-- [Go Report Card](https://goreportcard.com/report/github.com/yindia/iapetus)
-
----
-
-**iapetus** is built for reliability, extensibility, and developer happiness.  
-If you use it in your project, let us know and consider contributing!
-
