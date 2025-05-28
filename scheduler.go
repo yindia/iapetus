@@ -9,13 +9,18 @@ import (
 	"go.uber.org/zap"
 )
 
+// schedulerEvent represents an event in the scheduler loop.
+type schedulerEvent struct {
+	eventType string // e.g. "ready", "done", "cancel"
+	name      string // task name, if relevant
+}
+
 // dagScheduler encapsulates all state for parallel DAG execution.
 type dagScheduler struct {
 	w          *Workflow
 	taskMap    map[string]*Task
 	depCount   map[string]int
 	dependents map[string][]string
-	ready      chan string
 	wg         sync.WaitGroup
 	mu         sync.Mutex
 	errOnce    error
@@ -25,6 +30,7 @@ type dagScheduler struct {
 	completed  map[string]bool
 	started    map[string]bool
 	cancelled  bool
+	eventCh    chan schedulerEvent
 }
 
 // newDagScheduler initializes the scheduler state from the task order.
@@ -45,7 +51,6 @@ func newDagScheduler(w *Workflow, order []*Task) *dagScheduler {
 		taskMap:    taskMap,
 		depCount:   depCount,
 		dependents: dependents,
-		ready:      make(chan string, len(order)),
 		errOnce:    nil,
 		ctx:        ctx,
 		cancel:     cancel,
@@ -53,68 +58,70 @@ func newDagScheduler(w *Workflow, order []*Task) *dagScheduler {
 		completed:  make(map[string]bool),
 		started:    make(map[string]bool),
 		cancelled:  false,
+		eventCh:    make(chan schedulerEvent, len(order)*2),
 	}
 }
 
 // run executes the DAG in parallel, respecting dependencies.
 func (s *dagScheduler) run() error {
 	defer s.cancel()
-	var closeReadyOnce sync.Once
-	// Seed ready queue with tasks that have no dependencies
+	// Seed event queue with tasks that have no dependencies
 	for name, count := range s.depCount {
 		if count == 0 {
-			s.ready <- name
+			s.eventCh <- schedulerEvent{eventType: "ready", name: name}
 		}
 	}
+	if len(s.taskMap) == 0 {
+		s.w.logger.Debug("Scheduler: no tasks to run, exiting immediately", zap.String("workflow", s.w.Name))
+		return nil
+	}
 
-schedulerLoop:
 	for {
-		if s.cancelled {
-			s.w.logger.Debug("Scheduler: context cancelled, breaking main loop", zap.String("workflow", s.w.Name))
-			break schedulerLoop
-		}
 		select {
 		case <-s.ctx.Done():
 			s.cancelled = true
+			s.w.logger.Debug("Scheduler: context cancelled, breaking main loop", zap.String("workflow", s.w.Name))
+			return s.errOnce
+
 		case <-s.doneCh:
 			s.w.logger.Debug("Scheduler: doneCh signaled, breaking main loop", zap.String("workflow", s.w.Name))
-			break schedulerLoop
-		case name, ok := <-s.ready:
-			if !ok || name == "" {
-				s.w.logger.Debug("Scheduler: ready channel closed or empty, breaking main loop", zap.String("workflow", s.w.Name))
-				break schedulerLoop
-			}
-			s.mu.Lock()
-			task, ok := s.taskMap[name]
-			if !ok || s.started[name] {
-				s.mu.Unlock()
-				continue
-			}
-			s.started[name] = true
-			if len(s.started) == len(s.taskMap) {
-				closeReadyOnce.Do(func() { close(s.ready) })
-			}
-			s.mu.Unlock()
-			s.wg.Add(1)
-			go s.runTask(name, task)
-		default:
-			s.mu.Lock()
-			if len(s.completed) == len(s.taskMap) {
+			return s.errOnce
+
+		case ev := <-s.eventCh:
+			switch ev.eventType {
+			case "ready":
+				s.handleReady(ev.name)
+			case "done":
 				s.w.logger.Debug("All tasks completed, breaking scheduler loop", zap.String("workflow", s.w.Name))
-				s.mu.Unlock()
-				break schedulerLoop
+				return s.errOnce
+			case "cancel":
+				s.cancelled = true
+				s.w.logger.Debug("Scheduler: cancel event, breaking main loop", zap.String("workflow", s.w.Name))
+				return s.errOnce
 			}
+		case <-time.After(10 * time.Millisecond):
+			s.mu.Lock()
+			allCompleted := len(s.completed) == len(s.taskMap)
 			s.mu.Unlock()
-			if s.cancelled {
-				s.w.logger.Debug("Scheduler: context cancelled in default, breaking main loop", zap.String("workflow", s.w.Name))
-				break schedulerLoop
+			if allCompleted {
+				s.eventCh <- schedulerEvent{eventType: "done"}
 			}
-			time.Sleep(10 * time.Millisecond)
 		}
 	}
-	s.wg.Wait()
-	s.w.logger.Debug("Returning from scheduler: after wg.Wait", zap.String("workflow", s.w.Name))
-	return s.errOnce
+}
+
+// handleReady handles a ready event by starting the task if not already started.
+func (s *dagScheduler) handleReady(name string) {
+	s.mu.Lock()
+	task, ok := s.taskMap[name]
+	if !ok || s.started[name] {
+		s.mu.Unlock()
+		return
+	}
+	s.started[name] = true
+	s.mu.Unlock()
+	s.wg.Add(1)
+	go s.runTask(name, task)
 }
 
 // runTask executes a single task and handles completion, dependents, and error propagation.
@@ -176,7 +183,7 @@ func (s *dagScheduler) runTask(name string, task *Task) {
 	for _, dep := range s.dependents[name] {
 		s.depCount[dep]--
 		if s.depCount[dep] == 0 && !s.started[dep] {
-			s.ready <- dep
+			s.eventCh <- schedulerEvent{eventType: "ready", name: dep}
 		}
 	}
 	s.mu.Unlock()
