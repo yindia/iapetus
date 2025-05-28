@@ -25,6 +25,9 @@
 - [Assertions: Built-in & Custom](#assertions-built-in--custom)
 - [Advanced Features](#advanced-features)
 - [Observability & Extensibility](#observability--extensibility)
+- [Use Cases: CLI Integration & End-to-End Testing](#use-cases-cli-integration--end-to-end-testing)
+- [FAQ](#faq)
+- [Roadmap & Upcoming Features](#roadmap--upcoming-features)
 - [Contributing](#contributing)
 - [Community & Support](#community--support)
 - [License](#license)
@@ -82,6 +85,27 @@ You should see output from the workflow and task execution. Try editing the comm
 
 Or, to use in your own project, see the code sample below and follow the instructions to set up your own Go module.
 
+#### Running in an Isolated Environment
+
+For reproducible development and testing, use [pixi](https://pixi.sh/) or Docker:
+
+**With pixi:**
+```sh
+git clone https://github.com/yindia/iapetus.git
+cd iapetus
+pixi shell
+pixi run go test ./...
+pixi run golangci-lint run ./...
+```
+
+**With Docker:**
+```sh
+docker run --rm -it -v $(pwd):/app -w /app golang:1.21 bash
+# Inside the container:
+go test ./...
+golangci-lint run ./...
+```
+
 ---
 
 ## 🧩 Task: Definition & Usage
@@ -95,7 +119,6 @@ A **Task** represents a single command or operation in your workflow. You can de
 - `Timeout` (time.Duration): Maximum execution time
 - `Retries` (int): Number of retry attempts on failure
 - `Depends` ([]string): Names of tasks this task depends on
-- `Env` ([]string): Environment variables (KEY=VALUE)
 - `EnvMap` (map[string]string): Alternative env representation
 - `Image` (string): Container image (for future containerized runners)
 - `Asserts` ([]func(*Task) error): List of assertion functions
@@ -246,6 +269,331 @@ task.Expect().ExitCode(0).OutputContains("foo").Done()
 - **Hooks**: Register multiple hooks for task start, success, failure, and completion (see above).
 - **Custom Extensions**: Add your own assertion functions, hooks, or even custom task runners.
 - **YAML/Config Integration**: (Planned) Load workflows from YAML or other config formats for CI/CD and automation.
+
+---
+
+## 🧪 Use Cases: CLI Integration & End-to-End Testing
+
+iapetus is ideal for writing integration and end-to-end (E2E) tests for any CLI tool—whether it's Docker, kubectl, git, terraform, or your own custom CLI. You can:
+- Run CLI commands as tasks
+- Assert on their output, exit code, or side effects
+- Chain commands with dependencies (e.g., setup, test, teardown)
+- Run tests in parallel or sequence
+- Integrate with CI for robust, automated CLI validation
+- Collect and reuse CLI output between tasks
+- Test both positive and negative scenarios
+
+### Example: Testing a CLI (e.g., Docker)
+
+```go
+import (
+    "github.com/yindia/iapetus"
+    "go.uber.org/zap"
+    "time"
+)
+
+task := iapetus.NewTask("docker-version", 5*time.Second, nil).
+    AddCommand("docker").
+    AddArgs("version").
+    AssertExitCode(0).
+    AssertOutputContains("Version")
+
+workflow := iapetus.NewWorkflow("docker-cli-test", zap.NewNop()).
+    AddTask(*task)
+
+if err := workflow.Run(); err != nil {
+    panic(err)
+}
+```
+
+### Example: E2E Test for a Custom CLI
+
+```go
+taskSetup := iapetus.NewTask("setup", 5*time.Second, nil).
+    AddCommand("mycli").
+    AddArgs("init").
+    AssertExitCode(0)
+
+taskRun := iapetus.NewTask("run", 5*time.Second, nil).
+    AddCommand("mycli").
+    AddArgs("run", "--foo").
+    Depends = []string{"setup"}
+    AssertOutputContains("success")
+
+taskTeardown := iapetus.NewTask("teardown", 5*time.Second, nil).
+    AddCommand("mycli").
+    AddArgs("cleanup").
+    Depends = []string{"run"}
+    AssertExitCode(0)
+
+workflow := iapetus.NewWorkflow("cli-e2e", zap.NewNop()).
+    AddTask(*taskSetup).
+    AddTask(*taskRun).
+    AddTask(*taskTeardown)
+
+if err := workflow.Run(); err != nil {
+    panic(err)
+}
+```
+
+---
+
+### Parallel CLI Tests
+
+You can run multiple CLI tests in parallel by omitting dependencies:
+
+```go
+tasks := []*iapetus.Task{
+    iapetus.NewTask("git-version", 3*time.Second, nil).
+        AddCommand("git").AddArgs("--version").AssertOutputContains("git version"),
+    iapetus.NewTask("kubectl-version", 3*time.Second, nil).
+        AddCommand("kubectl").AddArgs("version", "--client").AssertOutputContains("Client Version"),
+    iapetus.NewTask("terraform-version", 3*time.Second, nil).
+        AddCommand("terraform").AddArgs("version").AssertOutputContains("Terraform v"),
+}
+workflow := iapetus.NewWorkflow("cli-parallel", zap.NewNop())
+for _, t := range tasks {
+    workflow.AddTask(*t)
+}
+if err := workflow.Run(); err != nil {
+    panic(err)
+}
+```
+
+---
+
+### Table-Driven CLI Tests
+
+You can use Go's table-driven style to test many CLI commands with different arguments and assertions:
+
+```go
+testCases := []struct {
+    name    string
+    command string
+    args    []string
+    want    string
+}{
+    {"echo-hello", "echo", []string{"hello"}, "hello"},
+    {"echo-world", "echo", []string{"world"}, "world"},
+}
+workflow := iapetus.NewWorkflow("table-driven", zap.NewNop())
+for _, tc := range testCases {
+    t := iapetus.NewTask(tc.name, 2*time.Second, nil).
+        AddCommand(tc.command).
+        AddArgs(tc.args...).
+        AssertOutputContains(tc.want)
+    workflow.AddTask(*t)
+}
+if err := workflow.Run(); err != nil {
+    panic(err)
+}
+```
+
+---
+
+### Multi-CLI Orchestration
+
+You can orchestrate multiple CLI tools in a single workflow, with dependencies:
+
+```go
+taskDocker := iapetus.NewTask("docker-info", 5*time.Second, nil).
+    AddCommand("docker").AddArgs("info").AssertOutputContains("Containers")
+taskKubectl := iapetus.NewTask("kubectl-ns", 5*time.Second, nil).
+    AddCommand("kubectl").AddArgs("get", "ns").AssertExitCode(0)
+taskTerraform := iapetus.NewTask("terraform-help", 5*time.Second, nil).
+    AddCommand("terraform").AddArgs("help").AssertOutputContains("Usage")
+taskSummary := iapetus.NewTask("summary", 2*time.Second, nil).
+    AddCommand("echo").AddArgs("All CLI checks passed!").
+    Depends = []string{"docker-info", "kubectl-ns", "terraform-help"}
+workflow := iapetus.NewWorkflow("multi-cli", zap.NewNop()).
+    AddTask(*taskDocker).
+    AddTask(*taskKubectl).
+    AddTask(*taskTerraform).
+    AddTask(*taskSummary)
+if err := workflow.Run(); err != nil {
+    panic(err)
+}
+```
+
+---
+
+### Dynamic Assertions & Output Reuse
+
+You can use hooks or custom assertions to capture CLI output and use it in later tasks:
+
+```go
+var dockerVersion string
+task := iapetus.NewTask("docker-version", 5*time.Second, nil).
+    AddCommand("docker").AddArgs("version", "--format", "{{.Server.Version}}")
+workflow := iapetus.NewWorkflow("dynamic-assert", zap.NewNop())
+workflow.AddOnTaskSuccessHook(func(t *iapetus.Task) {
+    if t.Name == "docker-version" {
+        dockerVersion = t.Actual.Output
+    }
+})
+workflow.AddTask(*task)
+// Add more tasks that use dockerVersion as needed
+if err := workflow.Run(); err != nil {
+    panic(err)
+}
+```
+
+---
+
+### Testing Error Cases & Negative Scenarios
+
+You can assert on error output, non-zero exit codes, or expected failures:
+
+```go
+task := iapetus.NewTask("fail-case", 2*time.Second, nil).
+    AddCommand("ls").AddArgs("/nonexistent").
+    AssertExitCode(1).
+    AddAssertion(func(t *iapetus.Task) error {
+        if !strings.Contains(t.Actual.Output, "No such file or directory") {
+            return fmt.Errorf("expected error message not found")
+        }
+        return nil
+    })
+workflow := iapetus.NewWorkflow("negative-test", zap.NewNop()).AddTask(*task)
+if err := workflow.Run(); err != nil {
+    fmt.Println("Expected failure detected:", err)
+}
+```
+
+---
+
+### Using Hooks for Custom Logging or Metrics
+
+You can use hooks to collect logs, metrics, or trigger custom actions on task events:
+
+```go
+workflow := iapetus.NewWorkflow("hook-logging", zap.NewNop())
+workflow.AddOnTaskStartHook(func(t *iapetus.Task) {
+    fmt.Printf("Starting task: %s\n", t.Name)
+})
+workflow.AddOnTaskSuccessHook(func(t *iapetus.Task) {
+    fmt.Printf("Task succeeded: %s\n", t.Name)
+})
+workflow.AddOnTaskFailureHook(func(t *iapetus.Task, err error) {
+    fmt.Printf("Task failed: %s, error: %v\n", t.Name, err)
+})
+// Add tasks as usual
+```
+
+---
+
+### Example: iapetus in a CI Pipeline (GitHub Actions)
+
+```yaml
+name: CLI Integration Test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      - name: Install dependencies
+        run: go mod tidy
+      - name: Run CLI E2E tests
+        run: go test ./...
+```
+
+---
+
+**iapetus supports any CLI tool that can be invoked from Go—Docker, kubectl, git, terraform, helm, your own binaries, and more!**
+
+---
+
+## ❓ FAQ
+
+### Where should I use iapetus?
+- **CI/CD pipelines**: Automate build, test, and deployment workflows with complex dependencies.
+- **Data pipelines**: Orchestrate ETL, validation, and reporting steps.
+- **DevOps automation**: Run infrastructure checks, smoke tests, and environment setup.
+- **Local developer automation**: Script repeatable local workflows with assertions and parallelism.
+- **Anywhere you need robust, parallel, dependency-aware task execution in Go!**
+
+### How does iapetus compare to other workflow tools?
+- **Go-native**: No YAML/DSL required (but planned for future). Full type safety and IDE support.
+- **Extensible**: Add custom logic, assertions, and hooks in Go.
+- **Event-driven, concurrency-safe**: No goroutine leaks, robust error handling.
+- **Integrates with your Go codebase**: No external engine or server required.
+
+### How do I run all commands in an isolated environment?
+- **With pixi:**
+  ```sh
+  pixi shell
+  pixi run go test ./...
+  pixi run golangci-lint run ./...
+  ```
+- **With Docker:**
+  ```sh
+  docker run --rm -it -v $(pwd):/app -w /app golang:1.21 bash
+  go test ./...
+  golangci-lint run ./...
+  ```
+
+### Can I use iapetus for cloud-native workflows?
+- Yes! iapetus is designed to be extensible. Upcoming plugin systems will let you:
+  - Run tasks in Docker containers
+  - Orchestrate jobs on Kubernetes
+  - Trigger and manage AWS Lambda or other FaaS systems
+  - Integrate with CI/CD, cloud, and on-prem systems
+
+### How does iapetus handle failures and retries?
+- Each task can specify a `Retries` count. If a task fails (due to command error or assertion failure), it will be retried up to the specified number of times.
+- If a task fails after all retries, the workflow will fail fast and propagate the error.
+- You can add custom error handling logic via hooks.
+
+### Can I visualize my workflows?
+- Visualization is on the roadmap! Planned features include a web UI and dashboard for real-time workflow status and DAG visualization.
+- For now, you can log workflow execution and use the observability hooks to export events to your own tools.
+
+### How do I contribute a plugin or integration?
+- The upcoming plugin system will provide clear interfaces for adding new runners, integrations, and backends (e.g., Docker, Kubernetes, Lambda).
+- Contributions are welcome! See the [Contributing](#contributing) section and open an issue or discussion to propose your plugin idea.
+
+### Is iapetus suitable for production?
+- Yes! iapetus is designed for reliability, concurrency safety, and extensibility. It is tested with property-based and stress tests.
+- However, APIs may evolve as the plugin system and config features mature. Please pin versions and review changelogs for breaking changes.
+
+### How do I debug or trace workflow execution?
+- All task and workflow events are logged with [zap](https://github.com/uber-go/zap) by default.
+- You can add hooks for custom logging, metrics, or tracing (e.g., OpenTelemetry).
+- Planned features include native tracing and metrics export.
+
+---
+
+## 🚧 Roadmap & Upcoming Features
+
+- **Plugin System**: Seamlessly connect iapetus to Docker, Kubernetes, Lambda, and other platforms.
+- **YAML/Config Integration**: Define workflows declaratively for CI/CD and automation.
+- **Web UI & Dashboard**: Visualize workflow execution and status.
+- **Metrics & Tracing**: Native support for Prometheus, OpenTelemetry, etc.
+- **More built-in assertions and integrations**
+- **Community-driven features**: Suggest your own!
+
+### 🔌 Plugin System Vision
+
+```mermaid
+graph TD
+    A[iapetus Core] --> B[Docker Plugin]
+    A --> C[Kubernetes Plugin]
+    A --> D[Lambda Plugin]
+    A --> E[Custom Plugin]
+    B --> F[Docker Engine]
+    C --> G[K8s Cluster]
+    D --> H[AWS Lambda]
+    E --> I[Your System]
+```
+
+- **iapetus Core**: Handles DAG scheduling, assertions, and orchestration logic
+- **Plugins**: Implement task runners for Docker, Kubernetes, Lambda, or your own systems
+- **Easy Integration**: Just add your plugin and configure your workflow to use it
 
 ---
 
