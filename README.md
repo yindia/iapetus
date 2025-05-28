@@ -83,29 +83,6 @@ GO111MODULE=on go run main.go
 
 You should see output from the workflow and task execution. Try editing the command or assertions in `main.go` to see how failures are reported!
 
-Or, to use in your own project, see the code sample below and follow the instructions to set up your own Go module.
-
-#### Running in an Isolated Environment
-
-For reproducible development and testing, use [pixi](https://pixi.sh/) or Docker:
-
-**With pixi:**
-```sh
-git clone https://github.com/yindia/iapetus.git
-cd iapetus
-pixi shell
-pixi run go test ./...
-pixi run golangci-lint run ./...
-```
-
-**With Docker:**
-```sh
-docker run --rm -it -v $(pwd):/app -w /app golang:1.21 bash
-# Inside the container:
-go test ./...
-golangci-lint run ./...
-```
-
 ---
 
 ## 🧩 Task: Definition & Usage
