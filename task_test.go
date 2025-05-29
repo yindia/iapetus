@@ -194,6 +194,12 @@ func (b *testBackend) RunTask(task *iapetus.Task) error {
 func (b *testBackend) ValidateTask(task *iapetus.Task) error {
 	return b.validateErr
 }
+func (b *testBackend) GetName() string {
+	return "test"
+}
+func (b *testBackend) GetStatus() string {
+	return "test"
+}
 
 func TestTask_DefaultsAndValidation(t *testing.T) {
 	t.Run("defaults backend/logger/env", func(t *testing.T) {

@@ -28,6 +28,13 @@ func (b *testBashBackend) ValidateTask(task *Task) error {
 	return nil
 }
 
+func (b *testBashBackend) GetName() string {
+	return "bash"
+}
+
+func (b *testBashBackend) GetStatus() string {
+	return "bash"
+}
 func TestDagScheduler_ParallelExecution(t *testing.T) {
 	var mu sync.Mutex
 	order := []string{}

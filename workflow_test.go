@@ -264,6 +264,8 @@ func (m *mockBackend) RunTask(task *iapetus.Task) error {
 	return nil
 }
 func (m *mockBackend) ValidateTask(task *iapetus.Task) error { return nil }
+func (m *mockBackend) GetName() string                       { return "mock" }
+func (m *mockBackend) GetStatus() string                     { return "mock" }
 
 func TestWorkflow_BackendPropagation(t *testing.T) {
 	called := false
