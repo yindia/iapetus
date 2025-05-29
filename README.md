@@ -6,6 +6,12 @@
 
 ---
 
+> ⚠️ **WARNING: iapetus is under heavy development. The API is experimental and subject to change.**
+> 
+> Please pin versions and review changelogs before upgrading. Feedback and contributions are welcome!
+
+---
+
 > ⭐ **If you like this project, please [star us on GitHub](https://github.com/yindia/iapetus/stargazers)!**
 
 ---
@@ -24,6 +30,7 @@
 - [Workflow: Orchestration & Hooks](#workflow-orchestration--hooks)
 - [Assertions: Built-in & Custom](#assertions-built-in--custom)
 - [Advanced Features](#advanced-features)
+- [Backend Plugins](#backend-plugins)
 - [Observability & Extensibility](#observability--extensibility)
 - [Use Cases: CLI Integration & End-to-End Testing](#use-cases-cli-integration--end-to-end-testing)
 - [FAQ](#faq)
@@ -206,7 +213,7 @@ task := iapetus.NewTask("db-migrate", 10*time.Second, nil).
     AddCommand("sh").
     AddArgs("-c", "./migrate.sh").
     SetRetries(3).
-    AddEnv("ENV=prod")
+    AddEnvMap(map[string]string{"ENV": "prod"})
     // Add assertions as needed
 ```
 
@@ -282,6 +289,46 @@ task.Expect().ExitCode(0).OutputContains("foo").Done()
 - **Environment Variables**: Use `EnvMap` (map) for environment configuration.
 - **Event-driven Scheduler**: iapetus uses an event-driven, concurrency-safe DAG scheduler for robust parallel execution.
 - **Plugin Backends**: Register and use custom or built-in backends (e.g., bash, docker) via `iapetus.RegisterBackend` and `SetBackend`.
+
+## 🔌 Backend Plugins
+
+iapetus supports pluggable backends for task execution. A backend is any type that implements the Backend interface:
+
+```go
+type Backend interface {
+    RunTask(task *Task) error
+    ValidateTask(task *Task) error
+}
+```
+
+To add a custom backend, implement this interface and register it with:
+
+```go
+iapetus.RegisterBackend("my-backend", myBackendImpl)
+```
+
+You can then set the backend for a workflow or individual task:
+
+```go
+workflow.Backend = "my-backend" // sets default for all tasks in the workflow
+task.SetBackend("my-backend")    // overrides for a specific task
+```
+
+Built-in backends include `"bash"` (default) and `"docker"` (for containerized execution).
+
+**Example custom backend:**
+
+```go
+type MyBackend struct{}
+func (b *MyBackend) RunTask(task *iapetus.Task) error { /* ... */ return nil }
+func (b *MyBackend) ValidateTask(task *iapetus.Task) error { return nil }
+
+func init() {
+    iapetus.RegisterBackend("my-backend", &MyBackend{})
+}
+```
+
+See the README and GoDoc for more details and usage patterns.
 
 ---
 
