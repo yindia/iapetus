@@ -4,6 +4,8 @@ package iapetus
 type Backend interface {
 	RunTask(task *Task) error
 	ValidateTask(task *Task) error
+	GetName() string
+	GetStatus() string
 }
 
 // backendRegistry holds all registered backends by name.

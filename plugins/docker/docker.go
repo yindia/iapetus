@@ -61,3 +61,14 @@ func (d *DockerBackend) RunTask(task *iapetus.Task) error {
 	}
 	return nil
 }
+
+func (d *DockerBackend) GetName() string {
+	return "docker"
+}
+
+func (d *DockerBackend) GetStatus() string {
+	if _, err := exec.LookPath("docker"); err == nil {
+		return "available"
+	}
+	return "unavailable"
+}

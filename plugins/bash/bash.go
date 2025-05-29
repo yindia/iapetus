@@ -68,3 +68,11 @@ func (b *BashBackend) RunTask(t *iapetus.Task) error {
 	}
 	return nil
 }
+
+func (b *BashBackend) GetName() string {
+	return "bash"
+}
+
+func (b *BashBackend) GetStatus() string {
+	return "available"
+}
