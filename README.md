@@ -712,7 +712,7 @@ graph TD
     A --> C[Kubernetes Plugin]
     A --> D[Lambda Plugin]
     A --> E[Custom Plugin]
-    A --> J[Bash Plugin (default)]
+    A --> J["Bash Plugin (default)"]
     B --> F[Docker Engine]
     C --> G[K8s Cluster]
     D --> H[AWS Lambda]
