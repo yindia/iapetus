@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Package iapetus provides workflow orchestration capabilities
+var DefaultBackend = "bash"
 
 // WorkflowError represents an error that occurred during workflow execution.
 // It contains context about which step failed and in which workflow.
@@ -31,10 +31,6 @@ func (e *WorkflowError) Error() string {
 type Workflow struct {
 	// Name identifies the workflow. If empty, a UUID will be generated at runtime
 	Name string // Name identifies the workflow
-	// PreRun is executed before any tasks. It can be used for workflow initialization
-	PreRun func(w *Workflow) error // PreRun is executed before any tasks
-	// PostRun is executed after all tasks complete successfully
-	PostRun func(w *Workflow) error // PostRun is executed after all tasks
 	// Steps contains the ordered list of tasks to execute
 	Steps []Task // Steps contains the ordered list of tasks to execute
 
@@ -48,6 +44,8 @@ type Workflow struct {
 	OnTaskSuccessHooks  []func(*Task)
 	OnTaskFailureHooks  []func(*Task, error)
 	OnTaskCompleteHooks []func(*Task)
+
+	Backend string `json:"backend" yaml:"backend"`
 }
 
 // NewWorkflow creates a new Workflow instance with the given name.
@@ -59,12 +57,18 @@ func NewWorkflow(name string, logger *zap.Logger) *Workflow {
 	return &Workflow{
 		Name:                name,
 		logger:              logger,
+		Backend:             DefaultBackend,
 		EnvMap:              make(map[string]string), // Initialize EnvMap
 		OnTaskStartHooks:    []func(*Task){},
 		OnTaskSuccessHooks:  []func(*Task){},
 		OnTaskFailureHooks:  []func(*Task, error){},
 		OnTaskCompleteHooks: []func(*Task){},
 	}
+}
+
+func (w *Workflow) SetBackend(backend string) *Workflow {
+	w.Backend = backend
+	return w
 }
 
 // Run executes the workflow by running all tasks in sequence.
@@ -76,16 +80,22 @@ func (w *Workflow) Run() error {
 		w.Name = "workflow-" + uuid.New().String()
 		w.logger.Debug("Generated new workflow name", zap.String("workflow", w.Name))
 	}
-	if w.PreRun != nil {
-		w.logger.Debug("Starting pre-run hook", zap.String("workflow", w.Name))
-		if err := w.PreRun(w); err != nil {
-			w.logger.Error("Pre-run hook failed", zap.String("workflow", w.Name), zap.Error(err))
-			return fmt.Errorf("pre-run hook failed for workflow %s: %v", w.Name, err)
-		}
-	}
+
 	dag := NewDag()
 	for i := range w.Steps {
 		task := &w.Steps[i]
+		// Propagate backend if not set
+		if task.Backend == "" {
+			task.SetBackend(w.Backend)
+		}
+		// Propagate logger if not set
+		if task.logger == nil {
+			task.logger = w.logger
+		}
+		// Propagate EnvMap if not set
+		if len(task.EnvMap) == 0 && len(w.EnvMap) > 0 {
+			task.EnvMap = w.EnvMap
+		}
 		if err := dag.AddTask(task); err != nil {
 			w.logger.Error("Failed to add task to DAG", zap.String("task", task.Name), zap.Error(err))
 			return &WorkflowError{
@@ -104,13 +114,6 @@ func (w *Workflow) Run() error {
 		}
 	}
 	err := w.runParallelDAG(dag)
-	if w.PostRun != nil {
-		w.logger.Debug("Starting post-run hook", zap.String("workflow", w.Name))
-		if postErr := w.PostRun(w); postErr != nil {
-			w.logger.Error("Post-run hook failed", zap.String("workflow", w.Name), zap.Error(postErr))
-			return fmt.Errorf("post-run hook failed for workflow %s: %v", w.Name, postErr)
-		}
-	}
 	w.logger.Info("Completed workflow", zap.String("workflow", w.Name))
 	return err
 }
@@ -172,20 +175,19 @@ func (w *Workflow) OnTaskComplete(task *Task) {
 }
 
 // AddTask appends a new task to the workflow's sequence of steps.
-// Tasks are executed in the order they are added.
+// It ensures the task inherits the workflow's backend and logger if not set.
 // Returns the workflow to allow for method chaining.
 func (w *Workflow) AddTask(task Task) *Workflow {
+	if task.Backend == "" {
+		task.SetBackend(w.Backend)
+	}
+	if task.logger == nil {
+		task.logger = w.logger
+	}
+	if len(task.EnvMap) == 0 && len(w.EnvMap) > 0 {
+		task.EnvMap = w.EnvMap
+	}
 	w.Steps = append(w.Steps, task)
-	return w
-}
-
-func (w *Workflow) AddPreRun(p func(w *Workflow) error) *Workflow {
-	w.PreRun = p
-	return w
-}
-
-func (w *Workflow) AddPostRun(p func(w *Workflow) error) *Workflow {
-	w.PostRun = p
 	return w
 }
 

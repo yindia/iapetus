@@ -17,10 +17,10 @@ func ReadFile(path string) string {
 	return string(content)
 }
 
-// getExitCode extracts the exit code from an error that may be an *exec.ExitError.
+// GetExitCode extracts the exit code from an error that may be an *exec.ExitError.
 // Returns 0 if err is nil, the actual exit code if err is an *exec.ExitError,
 // or -1 for other error types.
-func getExitCode(err error) int {
+func GetExitCode(err error) int {
 	if err == nil {
 		return 0
 	}

@@ -19,8 +19,8 @@ func TestGetExitCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getExitCode(tt.err); got != tt.expected {
-				t.Errorf("getExitCode() = %v, want %v", got, tt.expected)
+			if got := GetExitCode(tt.err); got != tt.expected {
+				t.Errorf("GetExitCode() = %v, want %v", got, tt.expected)
 			}
 		})
 	}

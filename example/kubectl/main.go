@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/yindia/iapetus"
 	"go.uber.org/zap"
@@ -19,7 +18,6 @@ var TASK_CREATE_KIND_CLUSTER = iapetus.Task{
 	Name:    "Create Kind Cluster",
 	Command: "kind",
 	Args:    []string{"create", "cluster"},
-	Env:     []string{},
 	Asserts: []func(*iapetus.Task) error{
 		iapetus.AssertExitCode(0),
 	},
@@ -29,7 +27,6 @@ var TASK_CREATE_NS_A = iapetus.Task{
 	Name:    "Create Namespace A",
 	Command: "kubectl",
 	Args:    []string{"create", "ns", nsA},
-	Env:     []string{},
 	Asserts: []func(*iapetus.Task) error{
 		iapetus.AssertExitCode(0),
 	},
@@ -40,7 +37,6 @@ var TASK_CREATE_NS_B = iapetus.Task{
 	Name:    "Create Namespace B",
 	Command: "kubectl",
 	Args:    []string{"create", "ns", nsB},
-	Env:     []string{},
 	Asserts: []func(*iapetus.Task) error{
 		iapetus.AssertExitCode(0),
 	},
@@ -51,7 +47,6 @@ var TASK_DEPLOY_NGINX_A = iapetus.Task{
 	Name:    "Deploy Nginx in A",
 	Command: "kubectl",
 	Args:    []string{"create", "deployment", "nginx-a", "--image", "nginx", "-n", nsA},
-	Env:     []string{},
 	Asserts: []func(*iapetus.Task) error{
 		iapetus.AssertExitCode(0),
 	},
@@ -62,7 +57,6 @@ var TASK_DEPLOY_NGINX_B = iapetus.Task{
 	Name:    "Deploy Nginx in B",
 	Command: "kubectl",
 	Args:    []string{"create", "deployment", "nginx-b", "--image", "nginx", "-n", nsB},
-	Env:     []string{},
 	Asserts: []func(*iapetus.Task) error{
 		iapetus.AssertExitCode(0),
 	},
@@ -73,39 +67,28 @@ var TASK_GET_PODS_A = iapetus.Task{
 	Name:    "Get Pods in A",
 	Command: "kubectl",
 	Args:    []string{"get", "pods", "-n", nsA, "-o", "json"},
-	Env:     []string{},
 	Asserts: []func(*iapetus.Task) error{
 		iapetus.AssertExitCode(0),
 		AssertPodsExist,
 	},
 	Depends: []string{"Deploy Nginx in A"},
-	PreRun: func(t *iapetus.Task) error {
-		time.Sleep(5 * time.Second) // Wait for pods to be created
-		return nil
-	},
 }
 
 var TASK_GET_PODS_B = iapetus.Task{
 	Name:    "Get Pods in B",
 	Command: "kubectl",
 	Args:    []string{"get", "pods", "-n", nsB, "-o", "json"},
-	Env:     []string{},
 	Asserts: []func(*iapetus.Task) error{
 		iapetus.AssertExitCode(0),
 		AssertPodsExist,
 	},
 	Depends: []string{"Deploy Nginx in B"},
-	PreRun: func(t *iapetus.Task) error {
-		time.Sleep(5 * time.Second) // Wait for pods to be created
-		return nil
-	},
 }
 
 var TASK_DELETE_DEPLOYMENT_A = iapetus.Task{
 	Name:    "Delete Deployment A",
 	Command: "kubectl",
 	Args:    []string{"delete", "deployment", "nginx-a", "-n", nsA},
-	Env:     []string{},
 	Asserts: []func(*iapetus.Task) error{
 		iapetus.AssertExitCode(0),
 	},
@@ -116,7 +99,6 @@ var TASK_DELETE_DEPLOYMENT_B = iapetus.Task{
 	Name:    "Delete Deployment B",
 	Command: "kubectl",
 	Args:    []string{"delete", "deployment", "nginx-b", "-n", nsB},
-	Env:     []string{},
 	Asserts: []func(*iapetus.Task) error{
 		iapetus.AssertExitCode(0),
 	},
@@ -127,7 +109,6 @@ var TASK_DELETE_NS_A = iapetus.Task{
 	Name:    "Delete Namespace A",
 	Command: "kubectl",
 	Args:    []string{"delete", "ns", nsA},
-	Env:     []string{},
 	Asserts: []func(*iapetus.Task) error{
 		iapetus.AssertExitCode(0),
 	},
@@ -138,7 +119,6 @@ var TASK_DELETE_NS_B = iapetus.Task{
 	Name:    "Delete Namespace B",
 	Command: "kubectl",
 	Args:    []string{"delete", "ns", nsB},
-	Env:     []string{},
 	Asserts: []func(*iapetus.Task) error{
 		iapetus.AssertExitCode(0),
 	},
@@ -149,7 +129,6 @@ var TASK_DELETE_KIND_CLUSTER = iapetus.Task{
 	Name:    "Delete Kind Cluster",
 	Command: "kind",
 	Args:    []string{"delete", "cluster"},
-	Env:     []string{},
 	Asserts: []func(*iapetus.Task) error{
 		iapetus.AssertExitCode(0),
 	},

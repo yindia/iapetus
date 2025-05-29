@@ -1,16 +1,25 @@
 package iapetus
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
+
+// DefaultTaskTimeout is the default timeout for all tasks if not specified.
+// It can be overridden by setting the IAPETUS_TASK_TIMEOUT environment variable (e.g., "10s", "2m").
+var DefaultTaskTimeout time.Duration = 30 * time.Second
+
+func init() {
+	if val := os.Getenv("IAPETUS_TASK_TIMEOUT"); val != "" {
+		if d, err := time.ParseDuration(val); err == nil {
+			DefaultTaskTimeout = d
+		}
+	}
+}
 
 // Task represents a configurable command execution unit that can be run with retries,
 // validated against expected outputs, and extended with custom assertions and hooks.
@@ -25,8 +34,6 @@ type Task struct {
 	Args []string // Command line arguments
 	// Timeout is the maximum execution time for the task.
 	Timeout time.Duration // Maximum execution time
-	// Env is a list of additional environment variables (KEY=VALUE).
-	Env []string `json:"env" yaml:"env"` // Additional environment variables (KEY=VALUE)
 	// EnvMap is an alternative environment variable representation (key-value map).
 	EnvMap map[string]string `json:"env_map" yaml:"env_map"` // Alternative env representation (key-value)
 	// Image is the container image to use for the task (optional).
@@ -40,11 +47,8 @@ type Task struct {
 	// Asserts is a list of custom validation functions (assertions).
 	Asserts []func(*Task) error // Custom validation functions
 	// logger is the zap logger used for this task.
-	logger *zap.Logger
-	// PreRun is executed before the task runs. Can be used for task initialization
-	PreRun func(w *Task) error // PreRun is executed before any tasks
-	// PostRun is executed after the task completes successfully.
-	PostRun func(w *Task) error // PostRun is executed after all tasks complete successfully
+	logger  *zap.Logger // Logger for this task
+	Backend string      // Per-task backend override
 }
 
 // Output holds the execution results of a command, including its exit code,
@@ -79,34 +83,71 @@ func NewTask(name string, timeout time.Duration, logger *zap.Logger) *Task {
 	}
 }
 
-// Run executes the task with configured retries and assertions.
-// It captures the command output and runs all registered assertions.
-// Returns an error if any assertion fails after all retry attempts.
-func (t *Task) Run() error {
-	if t.Name == "" {
-		t.Name = "task-" + uuid.New().String()
+// SetBackend sets the backend for this task (overrides workflow/default).
+func (t *Task) SetBackend(backend string) *Task {
+	t.Backend = backend
+	return t
+}
+
+// getBackend returns the backend for this task, falling back to workflow or default.
+func (t *Task) getBackend() Backend {
+	backendName := t.Backend
+	if backendName == "" {
+		backendName = DefaultBackend
 	}
+	return GetBackend(backendName)
+}
+
+// EnsureDefaults ensures logger, backend, and EnvMap are set.
+func (t *Task) EnsureDefaults() {
 	if t.logger == nil {
 		t.logger, _ = zap.NewProduction()
 	}
+	if t.Backend == "" {
+		t.Backend = DefaultBackend
+	}
+	if t.EnvMap == nil {
+		t.EnvMap = make(map[string]string)
+	}
+}
+
+// Run executes the task with configured retries and assertions.
+// It uses the plugin backend if available, or returns an error if not found.
+func (t *Task) Run() error {
+	t.EnsureDefaults()
+	if t.Name == "" {
+		t.Name = "task-" + uuid.New().String()
+	}
 	if t.Timeout == 0*time.Second {
-		t.Timeout = 100 * time.Second
+		t.Timeout = DefaultTaskTimeout
 	}
 	if t.Retries == 0 {
 		t.Retries = 1
 	}
-	t.logger.Info("Running task", zap.String("task", t.Name))
-	if t.PreRun != nil {
-		t.logger.Debug("Starting pre-run hook", zap.String("task", t.Name))
-		if err := t.PreRun(t); err != nil {
-			t.logger.Error("Pre-run hook failed", zap.String("task", t.Name), zap.Error(err))
-			return fmt.Errorf("pre-run hook failed for task %s: %v", t.Name, err)
-		}
+	if t.Command == "" {
+		t.logger.Error("Task command is required", zap.String("task", t.Name))
+		return fmt.Errorf("task %s: command is required", t.Name)
 	}
+	t.logger.Info("Running task", zap.String("task", t.Name), zap.String("backend", t.Backend))
+
+	backend := t.getBackend()
+	if backend == nil {
+		t.logger.Error("No backend found", zap.String("backend", t.Backend))
+		return fmt.Errorf("backend %s not found", t.Backend)
+	}
+
+	// If the backend implements Validator, validate the task before running
+
+	if err := backend.ValidateTask(t); err != nil {
+		t.logger.Error("Task validation failed", zap.String("task", t.Name), zap.Error(err))
+		return err
+	}
+
 	var lastErr error
 	for attempt := 1; attempt <= t.Retries; attempt++ {
 		t.logger.Debug("Attempt", zap.Int("attempt", attempt), zap.Int("retries", t.Retries), zap.String("task", t.Name))
-		if err := t.executeCommand(); err != nil {
+		err := backend.RunTask(t)
+		if err != nil {
 			lastErr = err
 			if attempt < t.Retries {
 				t.logger.Debug("Retrying task after failure", zap.String("task", t.Name))
@@ -117,79 +158,13 @@ func (t *Task) Run() error {
 		}
 		return nil
 	}
-	if t.PostRun != nil {
-		t.logger.Debug("Starting post-run hook", zap.String("task", t.Name))
-		if err := t.PostRun(t); err != nil {
-			t.logger.Error("Post-run hook failed", zap.String("task", t.Name), zap.Error(err))
-			return fmt.Errorf("post-run hook failed for task %s: %v", t.Name, err)
-		}
-	}
 	return lastErr
-}
-
-// executeCommand handles a single execution attempt
-func (t *Task) executeCommand() error {
-	ctx, cancel := context.WithTimeout(context.Background(), t.Timeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, t.Command, t.Args...)
-
-	// Merge environment variables: os.Environ + t.Env + t.EnvMap (EnvMap takes precedence)
-	envMap := map[string]string{}
-	for _, kv := range os.Environ() {
-		parts := strings.SplitN(kv, "=", 2)
-		if len(parts) == 2 {
-			envMap[parts[0]] = parts[1]
-		}
-	}
-	for _, kv := range t.Env {
-		parts := strings.SplitN(kv, "=", 2)
-		if len(parts) == 2 {
-			envMap[parts[0]] = parts[1]
-		}
-	}
-	for k, v := range t.EnvMap {
-		envMap[k] = v
-	}
-	finalEnv := make([]string, 0, len(envMap))
-	for k, v := range envMap {
-		finalEnv = append(finalEnv, k+"="+v)
-	}
-	cmd.Env = finalEnv
-
-	if t.WorkingDir != "" {
-		cmd.Dir = t.WorkingDir
-	}
-	t.logger.Debug("Command", zap.String("cmd", t.Command+" "+strings.Join(t.Args, " ")))
-	output, err := cmd.CombinedOutput()
-	t.Actual.Output = string(output)
-	t.Actual.ExitCode = getExitCode(err)
-	if err != nil {
-		t.Actual.Error = err.Error()
-		if ctx.Err() == context.DeadlineExceeded {
-			t.logger.Error("Task timed out", zap.String("task", t.Name), zap.Duration("timeout", t.Timeout))
-			return fmt.Errorf("task %s timed out after %v", t.Name, t.Timeout)
-		}
-		t.logger.Error("Error executing task", zap.String("task", t.Name), zap.Error(err))
-	}
-	// Use RunAssertions to aggregate all assertion errors
-	err = RunAssertions(t)
-	if err != nil {
-		t.logger.Error("Assertion(s) failed", zap.String("task", t.Name), zap.Error(err))
-		return err
-	}
-	return nil
 }
 
 // AddAssertion registers a new assertion function to validate the task execution.
 // Assertions are run in the order they are added after the command completes.
 func (t *Task) AddAssertion(assert func(*Task) error) *Task {
 	t.Asserts = append(t.Asserts, assert)
-	return t
-}
-
-// AddEnv appends environment variables to the task.
-func (t *Task) AddEnv(env ...string) *Task {
-	t.Env = append(t.Env, env...)
 	return t
 }
 
@@ -292,4 +267,10 @@ func (t *Task) AddImage(image string) *Task {
 func (t *Task) AddEnvMap(envMap map[string]string) *Task {
 	t.EnvMap = envMap
 	return t
+}
+
+// Logger returns the zap.Logger for this task, ensuring it is set.
+func (t *Task) Logger() *zap.Logger {
+	t.EnsureDefaults()
+	return t.logger
 }

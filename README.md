@@ -93,13 +93,43 @@ A **Task** represents a single command or operation in your workflow. You can de
 - `Name` (string): Unique identifier for the task
 - `Command` (string): The command to execute (e.g., `echo`, `curl`)
 - `Args` ([]string): Command-line arguments
-- `Timeout` (time.Duration): Maximum execution time
+- `Timeout` (time.Duration): Maximum execution time (defaults to 30s, configurable globally)
 - `Retries` (int): Number of retry attempts on failure
 - `Depends` ([]string): Names of tasks this task depends on
 - `EnvMap` (map[string]string): Alternative env representation
 - `Image` (string): Container image (for future containerized runners)
 - `Asserts` ([]func(*Task) error): List of assertion functions
 - `PreRun`/`PostRun` (func): Hooks for setup/teardown
+
+#### Timeout Configuration
+- By default, each task has a timeout of **30 seconds**.
+- You can override the default for all tasks by setting the `IAPETUS_TASK_TIMEOUT` environment variable (e.g., `export IAPETUS_TASK_TIMEOUT=2m`).
+- You can override the timeout for an individual task by setting its `Timeout` field.
+
+#### Examples
+
+**Set a global default timeout for all tasks:**
+```sh
+export IAPETUS_TASK_TIMEOUT=2m
+```
+
+**Set a timeout for a specific task:**
+```go
+task := &iapetus.Task{
+    Name:    "Short Task",
+    Command: "sleep",
+    Args:    []string{"1"},
+    Timeout: 5 * time.Second, // Custom timeout for this task
+}
+```
+
+**Use the builder API:**
+```go
+task := iapetus.NewTask("docker-version", 10*time.Second, nil).
+    AddCommand("docker").
+    AddArgs("version").
+    AssertExitCode(0)
+```
 
 ### Task Examples
 

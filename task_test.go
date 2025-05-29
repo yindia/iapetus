@@ -1,16 +1,20 @@
-package iapetus
+package iapetus_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
+
+	"github.com/yindia/iapetus"
+	_ "github.com/yindia/iapetus/plugins/bash"
 )
 
 func TestIntegrationTest_Run(t *testing.T) {
-	test := &Task{
+	test := &iapetus.Task{
 		Command: "echo",
 		Args:    []string{"Hello, World!"},
-		Asserts: []func(*Task) error{
-			AssertOutputEquals("Hello, World!\n"),
+		Asserts: []func(*iapetus.Task) error{
+			iapetus.AssertOutputEquals("Hello, World!\n"),
 		},
 	}
 
@@ -25,8 +29,8 @@ func TestIntegrationTest_Run(t *testing.T) {
 }
 
 func TestIntegrationTest_AddAssertion(t *testing.T) {
-	test := &Task{}
-	assertion := func(i *Task) error {
+	test := &iapetus.Task{}
+	assertion := func(i *iapetus.Task) error {
 		return nil
 	}
 
@@ -38,11 +42,11 @@ func TestIntegrationTest_AddAssertion(t *testing.T) {
 }
 
 func TestIntegrationTest_AddMultipleAssertions(t *testing.T) {
-	test := &Task{}
-	assertion1 := func(i *Task) error {
+	test := &iapetus.Task{}
+	assertion1 := func(i *iapetus.Task) error {
 		return nil
 	}
-	assertion2 := func(i *Task) error {
+	assertion2 := func(i *iapetus.Task) error {
 		return errors.New("failed assertion")
 	}
 
@@ -55,10 +59,10 @@ func TestIntegrationTest_AddMultipleAssertions(t *testing.T) {
 }
 
 func TestIntegrationTest_RunCommandError(t *testing.T) {
-	test := &Task{
+	test := &iapetus.Task{
 		Command: "invalid_command",
-		Asserts: []func(*Task) error{
-			AssertExitCode(1),
+		Asserts: []func(*iapetus.Task) error{
+			iapetus.AssertExitCode(1),
 		},
 	}
 
@@ -69,102 +73,89 @@ func TestIntegrationTest_RunCommandError(t *testing.T) {
 }
 
 func TestTask_AssertExitCode(t *testing.T) {
-	task := NewTask("test", 0, nil).AssertExitCode(0)
+	task := iapetus.NewTask("test", 0, nil).AssertExitCode(0)
 	task.Actual.ExitCode = 0
-	if err := RunAssertions(task); err != nil {
+	if err := iapetus.RunAssertions(task); err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
 	task.Actual.ExitCode = 1
-	if err := RunAssertions(task); err == nil {
+	if err := iapetus.RunAssertions(task); err == nil {
 		t.Errorf("expected error for wrong exit code, got nil")
 	}
 }
 
 func TestTask_AssertOutputContains(t *testing.T) {
-	task := NewTask("test", 0, nil).AssertOutputContains("foo")
+	task := iapetus.NewTask("test", 0, nil).AssertOutputContains("foo")
 	task.Actual.Output = "hello foo bar"
-	if err := RunAssertions(task); err != nil {
+	if err := iapetus.RunAssertions(task); err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
 	task.Actual.Output = "hello bar"
-	if err := RunAssertions(task); err == nil {
+	if err := iapetus.RunAssertions(task); err == nil {
 		t.Errorf("expected error for missing substring, got nil")
 	}
 }
 
 func TestTask_AssertOutputEquals(t *testing.T) {
-	task := NewTask("test", 0, nil).AssertOutputEquals("foo")
+	task := iapetus.NewTask("test", 0, nil).AssertOutputEquals("foo")
 	task.Actual.Output = "foo"
-	if err := RunAssertions(task); err != nil {
+	if err := iapetus.RunAssertions(task); err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
 	task.Actual.Output = "bar"
-	if err := RunAssertions(task); err == nil {
+	if err := iapetus.RunAssertions(task); err == nil {
 		t.Errorf("expected error for output mismatch, got nil")
 	}
 }
 
 func TestTask_AssertOutputMatchesRegexp(t *testing.T) {
-	task := NewTask("test", 0, nil).AssertOutputMatchesRegexp(`foo\d+`)
+	task := iapetus.NewTask("test", 0, nil).AssertOutputMatchesRegexp(`foo\d+`)
 	task.Actual.Output = "foo123"
-	if err := RunAssertions(task); err != nil {
+	if err := iapetus.RunAssertions(task); err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
 	task.Actual.Output = "bar"
-	if err := RunAssertions(task); err == nil {
+	if err := iapetus.RunAssertions(task); err == nil {
 		t.Errorf("expected error for regex mismatch, got nil")
 	}
 }
 
 func TestTask_ExpectDSL(t *testing.T) {
-	task := NewTask("test", 0, nil).
+	task := iapetus.NewTask("test", 0, nil).
 		Expect().
 		ExitCode(0).
 		OutputContains("foo").
 		Done()
 	task.Actual.ExitCode = 0
 	task.Actual.Output = "foo bar"
-	if err := RunAssertions(task); err != nil {
+	if err := iapetus.RunAssertions(task); err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
 	task.Actual.ExitCode = 1
-	if err := RunAssertions(task); err == nil {
+	if err := iapetus.RunAssertions(task); err == nil {
 		t.Errorf("expected error for wrong exit code, got nil")
 	}
 }
 
 func TestTask_EnvVars(t *testing.T) {
-	t.Run("only Env", func(t *testing.T) {
-		task := &Task{
-			Command: "sh",
-			Args:    []string{"-c", "echo $FOO"},
-			Env:     []string{"FOO=bar"},
-			Asserts: []func(*Task) error{AssertOutputEquals("bar\n")},
-		}
-		if err := task.Run(); err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
-	})
-
 	t.Run("only EnvMap", func(t *testing.T) {
-		task := &Task{
+		task := &iapetus.Task{
 			Command: "sh",
 			Args:    []string{"-c", "echo $FOO"},
-			EnvMap:  map[string]string{"FOO": "baz"},
-			Asserts: []func(*Task) error{AssertOutputEquals("baz\n")},
+			EnvMap:  map[string]string{"FOO": "bar"},
+			Asserts: []func(*iapetus.Task) error{iapetus.AssertOutputEquals("bar\n")},
 		}
 		if err := task.Run(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
 	})
 
-	t.Run("Env and EnvMap, EnvMap wins", func(t *testing.T) {
-		task := &Task{
+	t.Run("EnvMap wins", func(t *testing.T) {
+		task := &iapetus.Task{
 			Command: "sh",
 			Args:    []string{"-c", "echo $FOO"},
-			Env:     []string{"FOO=bar"},
 			EnvMap:  map[string]string{"FOO": "baz"},
-			Asserts: []func(*Task) error{AssertOutputEquals("baz\n")},
+			Asserts: []func(*iapetus.Task) error{iapetus.AssertOutputEquals("baz\n")},
 		}
 		if err := task.Run(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -172,13 +163,107 @@ func TestTask_EnvVars(t *testing.T) {
 	})
 
 	t.Run("no envs, default", func(t *testing.T) {
-		task := &Task{
+		task := &iapetus.Task{
 			Command: "sh",
 			Args:    []string{"-c", "echo $FOO"},
-			Asserts: []func(*Task) error{AssertOutputEquals("\n")},
+			Asserts: []func(*iapetus.Task) error{iapetus.AssertOutputEquals("\n")},
 		}
 		if err := task.Run(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
 	})
+}
+
+/*
+func TestRunHook_Sleep(t *testing.T) {
+	hook := &Hook{Type: HookSleep, Seconds: 1}
+	start := time.Now()
+	err := RunHook(hook, nil)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if elapsed < time.Second {
+		t.Errorf("expected at least 1s sleep, got %v", elapsed)
+	}
+}
+
+func TestRunHook_Script(t *testing.T) {
+	hook := &Hook{Type: HookScript, Script: "echo hello"}
+	err := RunHook(hook, nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+*/
+
+// --- Additional tests for Task backend/logger/env/validation ---
+
+type testBackend struct {
+	called      *bool
+	fail        bool
+	validateErr error
+}
+
+func (b *testBackend) RunTask(task *iapetus.Task) error {
+	if b.called != nil {
+		*b.called = true
+	}
+	if b.fail {
+		return fmt.Errorf("backend run error")
+	}
+	return nil
+}
+func (b *testBackend) ValidateTask(task *iapetus.Task) error {
+	return b.validateErr
+}
+
+func TestTask_DefaultsAndValidation(t *testing.T) {
+	t.Run("defaults backend/logger/env", func(t *testing.T) {
+		called := false
+		iapetus.RegisterBackend("test", &testBackend{called: &called})
+		task := &iapetus.Task{Command: "echo", Backend: "test"}
+		if err := task.Run(); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if !called {
+			t.Errorf("expected backend RunTask to be called")
+		}
+		if task.Logger() == nil {
+			t.Errorf("expected logger to be set")
+		}
+		if task.EnvMap == nil {
+			t.Errorf("expected EnvMap to be initialized")
+		}
+	})
+
+	t.Run("missing command", func(t *testing.T) {
+		task := &iapetus.Task{Backend: "test"}
+		err := task.Run()
+		if err == nil || err.Error() != "task task-: command is required" && !contains(err.Error(), "command is required") {
+			t.Errorf("expected error for missing command, got %v", err)
+		}
+	})
+
+	t.Run("validate error", func(t *testing.T) {
+		iapetus.RegisterBackend("test-validate", &testBackend{validateErr: fmt.Errorf("bad task")})
+		task := &iapetus.Task{Command: "echo", Backend: "test-validate"}
+		err := task.Run()
+		if err == nil || err.Error() != "bad task" {
+			t.Errorf("expected validation error, got %v", err)
+		}
+	})
+
+	t.Run("backend run error and retry", func(t *testing.T) {
+		iapetus.RegisterBackend("test-fail", &testBackend{fail: true})
+		task := &iapetus.Task{Command: "echo", Backend: "test-fail", Retries: 2}
+		err := task.Run()
+		if err == nil || !contains(err.Error(), "failed after 2 attempts") {
+			t.Errorf("expected retry error, got %v", err)
+		}
+	})
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || (len(s) > len(substr) && (contains(s[1:], substr) || contains(s[:len(s)-1], substr))))
 }

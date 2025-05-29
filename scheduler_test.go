@@ -13,13 +13,29 @@ import (
 	"go.uber.org/zap"
 )
 
+func init() {
+	RegisterBackend("bash", &testBashBackend{})
+}
+
+type testBashBackend struct{}
+
+func (b *testBashBackend) RunTask(task *Task) error {
+	task.Actual.Output = ""
+	task.Actual.ExitCode = 0
+	return RunAssertions(task)
+}
+func (b *testBashBackend) ValidateTask(task *Task) error {
+	return nil
+}
+
 func TestDagScheduler_ParallelExecution(t *testing.T) {
 	var mu sync.Mutex
 	order := []string{}
 	wg := &sync.WaitGroup{}
 	tasks := []*Task{
 		{
-			Name: "a",
+			Name:    "a",
+			Command: "true",
 			Asserts: []func(*Task) error{
 				func(t *Task) error {
 					mu.Lock()
@@ -32,7 +48,8 @@ func TestDagScheduler_ParallelExecution(t *testing.T) {
 			},
 		},
 		{
-			Name: "b",
+			Name:    "b",
+			Command: "true",
 			Asserts: []func(*Task) error{
 				func(t *Task) error {
 					mu.Lock()
@@ -71,7 +88,8 @@ func TestDagScheduler_Dependencies(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	tasks := []*Task{
 		{
-			Name: "a",
+			Name:    "a",
+			Command: "true",
 			Asserts: []func(*Task) error{
 				func(t *Task) error {
 					mu.Lock()
@@ -84,6 +102,7 @@ func TestDagScheduler_Dependencies(t *testing.T) {
 		},
 		{
 			Name:    "b",
+			Command: "true",
 			Depends: []string{"a"},
 			Asserts: []func(*Task) error{
 				func(t *Task) error {
