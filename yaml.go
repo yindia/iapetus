@@ -16,15 +16,29 @@
 //     backend: bash
 //     env_map:
 //     BAR: baz
-//     asserts:
+//     raw_asserts:
 //   - exit_code: 0
 //   - output_contains: hello
+//   - output_equals: "hello\n"
+//   - output_json_equals: '{"foo": 1}'
+//   - output_matches_regexp: '^hello.*$'
+//   - output_json_equals: '{"foo": 1}'
+//     skip_json_nodes: ["foo.bar"]
 //   - name: step2
 //     command: echo
 //     args: ["world"]
 //     depends: [step1]
-//     asserts:
-//   - output_equals: world\n
+//     raw_asserts:
+//   - output_equals: "world\n"
+//
+// Note: Only fields that can be represented in YAML (strings, ints, slices, maps, etc.)
+// are supported. Assertions (functions) must be added programmatically after loading using raw_asserts.
+//
+// Usage:
+//
+//	wf, err := iapetus.LoadWorkflowFromYAML("workflow.yaml")
+//	if err != nil { log.Fatal(err) }
+//	err = wf.Run()
 package iapetus
 
 import (
@@ -36,24 +50,27 @@ import (
 )
 
 // assertionYAML is a helper struct for parsing assertions from YAML
-// (expand as needed for more assertion types)
+// Supports all built-in assertion types.
 type assertionYAML struct {
-	ExitCode       *int    `yaml:"exit_code,omitempty"`
-	OutputEquals   *string `yaml:"output_equals,omitempty"`
-	OutputContains *string `yaml:"output_contains,omitempty"`
+	ExitCode            *int     `yaml:"exit_code,omitempty"`
+	OutputEquals        *string  `yaml:"output_equals,omitempty"`
+	OutputContains      *string  `yaml:"output_contains,omitempty"`
+	OutputJsonEquals    *string  `yaml:"output_json_equals,omitempty"`
+	OutputMatchesRegexp *string  `yaml:"output_matches_regexp,omitempty"`
+	SkipJsonNodes       []string `yaml:"skip_json_nodes,omitempty"`
 }
 
 type taskYAML struct {
-	Name    string            `yaml:"name"`
-	Command string            `yaml:"command"`
-	Args    []string          `yaml:"args,omitempty"`
-	Timeout string            `yaml:"timeout,omitempty"`
-	Retries int               `yaml:"retries,omitempty"`
-	Depends []string          `yaml:"depends,omitempty"`
-	EnvMap  map[string]string `yaml:"env_map,omitempty"`
-	Image   string            `yaml:"image,omitempty"`
-	Backend string            `yaml:"backend,omitempty"`
-	Asserts []assertionYAML   `yaml:"asserts,omitempty"`
+	Name       string            `yaml:"name"`
+	Command    string            `yaml:"command"`
+	Args       []string          `yaml:"args,omitempty"`
+	Timeout    string            `yaml:"timeout,omitempty"`
+	Retries    int               `yaml:"retries,omitempty"`
+	Depends    []string          `yaml:"depends,omitempty"`
+	EnvMap     map[string]string `yaml:"env_map,omitempty"`
+	Image      string            `yaml:"image,omitempty"`
+	Backend    string            `yaml:"backend,omitempty"`
+	RawAsserts []assertionYAML   `yaml:"raw_asserts,omitempty"`
 }
 
 type workflowYAML struct {
@@ -63,7 +80,16 @@ type workflowYAML struct {
 	Steps   []taskYAML        `yaml:"steps"`
 }
 
-// LoadWorkflowFromYAML loads a workflow from a YAML file.
+// LoadWorkflowFromYAML loads a Workflow from a YAML file.
+//
+// All fields except assertions (Asserts) are loaded from YAML.
+// Assertions are specified in raw_asserts and converted after loading.
+//
+// Example:
+//
+//	wf, err := iapetus.LoadWorkflowFromYAML("workflow.yaml")
+//	if err != nil { log.Fatal(err) }
+//	err = wf.Run()
 func LoadWorkflowFromYAML(path string) (*Workflow, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -100,8 +126,7 @@ func LoadWorkflowFromYAML(path string) (*Workflow, error) {
 			}
 			task.Timeout = dur
 		}
-		// Parse assertions
-		for _, a := range t.Asserts {
+		for _, a := range t.RawAsserts {
 			if a.ExitCode != nil {
 				task.Asserts = append(task.Asserts, AssertExitCode(*a.ExitCode))
 			}
@@ -110,6 +135,12 @@ func LoadWorkflowFromYAML(path string) (*Workflow, error) {
 			}
 			if a.OutputContains != nil {
 				task.Asserts = append(task.Asserts, AssertOutputContains(*a.OutputContains))
+			}
+			if a.OutputJsonEquals != nil {
+				task.Asserts = append(task.Asserts, AssertOutputJsonEquals(*a.OutputJsonEquals, a.SkipJsonNodes...))
+			}
+			if a.OutputMatchesRegexp != nil {
+				task.Asserts = append(task.Asserts, AssertOutputMatchesRegexp(*a.OutputMatchesRegexp))
 			}
 		}
 		wf.AddTask(task)

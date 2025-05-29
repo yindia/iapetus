@@ -91,6 +91,58 @@ GO111MODULE=on go run main.go
 
 You should see output from the workflow and task execution. Try editing the command or assertions in `main.go` to see how failures are reported!
 
+### 📄 Defining Workflows in YAML
+
+iapetus supports loading workflows from YAML files for easy configuration and CI/CD integration.
+
+### Example YAML Workflow
+```yaml
+name: my-workflow
+backend: bash
+env_map:
+  FOO: bar
+steps:
+  - name: step1
+    command: echo
+    args: ["hello"]
+    timeout: 10s
+    backend: bash
+    env_map:
+      BAR: baz
+    raw_asserts:
+      - exit_code: 0
+      - output_contains: hello
+      - output_equals: "hello\n"
+      - output_json_equals: '{"foo": 1}'
+      - output_matches_regexp: '^hello.*$'
+      - output_json_equals: '{"foo": 1}'
+        skip_json_nodes: ["foo.bar"]
+  - name: step2
+    command: echo
+    args: ["world"]
+    depends: [step1]
+    raw_asserts:
+      - output_equals: "world\n"
+```
+
+### Loading a Workflow from YAML in Go
+```go
+wf, err := iapetus.LoadWorkflowFromYAML("workflow.yaml")
+if err != nil {
+    log.Fatalf("Failed to load workflow: %v", err)
+}
+// No further post-processing is needed: assertions are already converted.
+if err := wf.Run(); err != nil {
+    log.Fatalf("Workflow failed: %v", err)
+}
+```
+
+**Note:**
+- Assertions are specified in `raw_asserts` in YAML, which are loaded into a helper struct and then converted to Go assertion functions by the loader.
+- This pattern is necessary because Go cannot unmarshal functions from YAML directly.
+- All built-in assertions (`exit_code`, `output_equals`, `output_contains`, `output_json_equals`, `output_matches_regexp`, `skip_json_nodes`) are supported via `raw_asserts` in YAML.
+- You can mix and match assertion types as needed for each task.
+
 ---
 
 ## 🧩 Task: Definition & Usage
