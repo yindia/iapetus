@@ -174,29 +174,6 @@ func TestTask_EnvVars(t *testing.T) {
 	})
 }
 
-/*
-func TestRunHook_Sleep(t *testing.T) {
-	hook := &Hook{Type: HookSleep, Seconds: 1}
-	start := time.Now()
-	err := RunHook(hook, nil)
-	elapsed := time.Since(start)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if elapsed < time.Second {
-		t.Errorf("expected at least 1s sleep, got %v", elapsed)
-	}
-}
-
-func TestRunHook_Script(t *testing.T) {
-	hook := &Hook{Type: HookScript, Script: "echo hello"}
-	err := RunHook(hook, nil)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-}
-*/
-
 // --- Additional tests for Task backend/logger/env/validation ---
 
 type testBackend struct {

@@ -246,9 +246,6 @@ workflow.AddOnTaskFailureHook(func(task *iapetus.Task, err error) { /* ... */ })
 workflow.AddOnTaskCompleteHook(func(task *iapetus.Task) { /* ... */ })
 ```
 
-#### Note on Hooks
-- As of the current version, PreRun/PostRun hooks for tasks and workflows may not be part of the public API. Use the provided observability hooks for extensibility.
-
 ---
 
 ## 🧪 Assertions: Built-in & Custom

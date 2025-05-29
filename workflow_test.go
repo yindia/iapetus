@@ -149,18 +149,6 @@ func TestWorkflow_Run_EdgeCases(t *testing.T) {
 		}
 	})
 
-	t.Run("PreRun/PostRun hooks", func(t *testing.T) {
-		// Skipped: PreRun/PostRun hooks are not present in the current Workflow struct
-	})
-
-	t.Run("PreRun fails", func(t *testing.T) {
-		// Skipped: PreRun/PostRun hooks are not present in the current Workflow struct
-	})
-
-	t.Run("PostRun fails", func(t *testing.T) {
-		// Skipped: PreRun/PostRun hooks are not present in the current Workflow struct
-	})
-
 	t.Run("empty workflow", func(t *testing.T) {
 		wf := iapetus.NewWorkflow("empty-workflow", zap.NewNop())
 		err := wf.Run()
