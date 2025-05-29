@@ -55,6 +55,7 @@
 - 🧪 **Battle-tested**: stress, property-based, and concurrency tests
 - 🐳 **Container-ready**: Support for specifying container images and environment variables
 - 🧩 **Extensible**: Add custom hooks, assertions, and workflow logic
+- 🔌 **Plugin backends**: Easily add and use custom or built-in backends (e.g., bash, docker)
 
 ---
 
@@ -96,15 +97,32 @@ A **Task** represents a single command or operation in your workflow. You can de
 - `Timeout` (time.Duration): Maximum execution time (defaults to 30s, configurable globally)
 - `Retries` (int): Number of retry attempts on failure
 - `Depends` ([]string): Names of tasks this task depends on
-- `EnvMap` (map[string]string): Alternative env representation
-- `Image` (string): Container image (for future containerized runners)
+- `EnvMap` (map[string]string): Environment variables for the task
+- `Image` (string): Container image (for containerized backends)
 - `Asserts` ([]func(*Task) error): List of assertion functions
-- `PreRun`/`PostRun` (func): Hooks for setup/teardown
 
 #### Timeout Configuration
 - By default, each task has a timeout of **30 seconds**.
 - You can override the default for all tasks by setting the `IAPETUS_TASK_TIMEOUT` environment variable (e.g., `export IAPETUS_TASK_TIMEOUT=2m`).
 - You can override the timeout for an individual task by setting its `Timeout` field.
+
+#### Backend Configuration
+- You can set the backend for a task using the exported `SetBackend` method:
+
+```go
+task := &iapetus.Task{
+    Name:    "my-task",
+    Command: "echo",
+    Args:    []string{"hello"},
+}
+task.SetBackend("bash") // or "docker", or your custom backend
+```
+
+- Register a custom backend using the exported function:
+
+```go
+iapetus.RegisterBackend("my-backend", myBackendImpl)
+```
 
 #### Examples
 
@@ -121,6 +139,17 @@ task := &iapetus.Task{
     Args:    []string{"1"},
     Timeout: 5 * time.Second, // Custom timeout for this task
 }
+```
+
+**Set a backend for a specific task:**
+```go
+task := &iapetus.Task{
+    Name:    "Container Task",
+    Command: "echo",
+    Args:    []string{"inside container"},
+    Image:   "alpine:3.18",
+}
+task.SetBackend("docker")
 ```
 
 **Use the builder API:**
@@ -147,15 +176,8 @@ task := &iapetus.Task{
         iapetus.AssertExitCode(0),
         iapetus.AssertOutputContains("Success"),
     },
-    PreRun: func(t *iapetus.Task) error {
-        // Custom setup
-        return nil
-    },
-    PostRun: func(t *iapetus.Task) error {
-        // Custom teardown
-        return nil
-    },
 }
+task.SetBackend("bash") // Set the backend if needed
 ```
 
 #### Builder/Fluent API
@@ -174,16 +196,18 @@ task := iapetus.NewTask("verify-service", 5*time.Second, nil).
         }
         return nil
     })
+    // Optionally set backend
+    .SetBackend("docker")
 ```
 
-#### With Hooks and Retries
+#### With Retries
 ```go
 task := iapetus.NewTask("db-migrate", 10*time.Second, nil).
     AddCommand("sh").
     AddArgs("-c", "./migrate.sh").
     SetRetries(3).
     AddEnv("ENV=prod")
-    // Add assertions and hooks as needed
+    // Add assertions as needed
 ```
 
 ---
@@ -192,27 +216,18 @@ task := iapetus.NewTask("db-migrate", 10*time.Second, nil).
 
 A **Workflow** is a collection of tasks with dependencies, executed in parallel where possible (DAG scheduling).
 
-### Workflow Fields
-- `Name` (string): Workflow identifier
-- `Steps` ([]Task): List of tasks
-- `PreRun`/`PostRun` (func): Workflow-level setup/teardown
-- `OnTaskStartHooks`, `OnTaskSuccessHooks`, `OnTaskFailureHooks`, `OnTaskCompleteHooks`: Observability hooks
-- `Image`, `EnvMap`: Workflow-wide container/image/env config
-- `logger`: Pluggable logger (defaults to zap)
+### Workflow Construction
+- Use the exported constructor `iapetus.NewWorkflow` to create a workflow.
+- Add tasks using the `AddTask` method.
+- Set workflow-wide backend, logger, or environment using exported fields or methods.
 
 ### Workflow Example
 ```go
-workflow := iapetus.NewWorkflow("cluster-setup", zap.NewNop()).
-    AddTask(*task1).
-    AddTask(*task2).
-    AddPreRun(func(w *iapetus.Workflow) error {
-        // Setup logic before tasks run
-        return nil
-    }).
-    AddPostRun(func(w *iapetus.Workflow) error {
-        // Cleanup logic after all tasks
-        return nil
-    })
+workflow := iapetus.NewWorkflow("cluster-setup", zap.NewNop())
+workflow.Backend = "bash" // Set default backend for all tasks (optional)
+workflow.EnvMap = map[string]string{"FOO": "bar"} // Set workflow-wide env (optional)
+workflow.AddTask(*task1)
+workflow.AddTask(*task2)
 
 if err := workflow.Run(); err != nil {
     log.Fatalf("Workflow failed: %v", err)
@@ -230,6 +245,9 @@ workflow.AddOnTaskSuccessHook(func(task *iapetus.Task) { /* ... */ })
 workflow.AddOnTaskFailureHook(func(task *iapetus.Task, err error) { /* ... */ })
 workflow.AddOnTaskCompleteHook(func(task *iapetus.Task) { /* ... */ })
 ```
+
+#### Note on Hooks
+- As of the current version, PreRun/PostRun hooks for tasks and workflows may not be part of the public API. Use the provided observability hooks for extensibility.
 
 ---
 
@@ -263,16 +281,16 @@ task.Expect().ExitCode(0).OutputContains("foo").Done()
 
 - **Retries**: Set `Retries` on a task to automatically retry on assertion failure.
 - **Timeouts**: Set `Timeout` for each task to prevent hangs.
-- **Container Image**: Use the `Image` field to specify a container image (for future containerized runners).
-- **Environment Variables**: Use `Env` (list) or `EnvMap` (map) for environment configuration.
-- **PreRun/PostRun Hooks**: Use `PreRun` and `PostRun` for setup/teardown logic at both workflow and task levels.
+- **Container Image**: Use the `Image` field to specify a container image (for containerized backends).
+- **Environment Variables**: Use `EnvMap` (map) for environment configuration.
 - **Event-driven Scheduler**: iapetus uses an event-driven, concurrency-safe DAG scheduler for robust parallel execution.
+- **Plugin Backends**: Register and use custom or built-in backends (e.g., bash, docker) via `iapetus.RegisterBackend` and `SetBackend`.
 
 ---
 
 ## 🔍 Observability & Extensibility
 
-- **Logging**: All events are logged with [zap](https://github.com/uber-go/zap) by default. You can provide your own logger.
+- **Logging**: All events are logged with [zap](https://github.com/uber-go/zap) by default. You can provide your own logger via the workflow constructor.
 - **Hooks**: Register multiple hooks for task start, success, failure, and completion (see above).
 - **Custom Extensions**: Add your own assertion functions, hooks, or even custom task runners.
 - **YAML/Config Integration**: (Planned) Load workflows from YAML or other config formats for CI/CD and automation.
@@ -305,6 +323,8 @@ task := iapetus.NewTask("docker-version", 5*time.Second, nil).
     AssertExitCode(0).
     AssertOutputContains("Version")
 
+task.SetBackend("bash") // or "docker"
+
 workflow := iapetus.NewWorkflow("docker-cli-test", zap.NewNop()).
     AddTask(*task)
 
@@ -324,14 +344,16 @@ taskSetup := iapetus.NewTask("setup", 5*time.Second, nil).
 taskRun := iapetus.NewTask("run", 5*time.Second, nil).
     AddCommand("mycli").
     AddArgs("run", "--foo").
-    Depends = []string{"setup"}
     AssertOutputContains("success")
+    // Set dependency
+    taskRun.Depends = []string{"setup"}
 
 taskTeardown := iapetus.NewTask("teardown", 5*time.Second, nil).
     AddCommand("mycli").
     AddArgs("cleanup").
-    Depends = []string{"run"}
     AssertExitCode(0)
+    // Set dependency
+    taskTeardown.Depends = []string{"run"}
 
 workflow := iapetus.NewWorkflow("cli-e2e", zap.NewNop()).
     AddTask(*taskSetup).
@@ -410,8 +432,10 @@ taskKubectl := iapetus.NewTask("kubectl-ns", 5*time.Second, nil).
 taskTerraform := iapetus.NewTask("terraform-help", 5*time.Second, nil).
     AddCommand("terraform").AddArgs("help").AssertOutputContains("Usage")
 taskSummary := iapetus.NewTask("summary", 2*time.Second, nil).
-    AddCommand("echo").AddArgs("All CLI checks passed!").
-    Depends = []string{"docker-info", "kubectl-ns", "terraform-help"}
+    AddCommand("echo").AddArgs("All CLI checks passed!")
+// Set dependencies
+
+taskSummary.Depends = []string{"docker-info", "kubectl-ns", "terraform-help"}
 workflow := iapetus.NewWorkflow("multi-cli", zap.NewNop()).
     AddTask(*taskDocker).
     AddTask(*taskKubectl).
@@ -545,7 +569,7 @@ jobs:
   ```
 
 ### Can I use iapetus for cloud-native workflows?
-- Yes! iapetus is designed to be extensible. Upcoming plugin systems will let you:
+- Yes! iapetus is designed to be extensible. The plugin system lets you:
   - Run tasks in Docker containers
   - Orchestrate jobs on Kubernetes
   - Trigger and manage AWS Lambda or other FaaS systems
@@ -561,7 +585,7 @@ jobs:
 - For now, you can log workflow execution and use the observability hooks to export events to your own tools.
 
 ### How do I contribute a plugin or integration?
-- The upcoming plugin system will provide clear interfaces for adding new runners, integrations, and backends (e.g., Docker, Kubernetes, Lambda).
+- The plugin system provides clear interfaces for adding new runners, integrations, and backends (e.g., Docker, Kubernetes, Lambda).
 - Contributions are welcome! See the [Contributing](#contributing) section and open an issue or discussion to propose your plugin idea.
 
 ### Is iapetus suitable for production?
