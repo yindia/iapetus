@@ -1,48 +1,43 @@
 .. iapetus documentation master file
 
-Welcome to iapetus's documentation!
-===================================
+Welcome to iapetus!
+===================
 
-**iapetus** is an open source, extensible workflow orchestrator for automating and testing command-line tasks, DevOps pipelines, and CI/CD workflows. It supports parallel DAG execution, plugin backends (bash, docker, and more), YAML and Go configuration, and robust assertions.
+**iapetus** helps you automate, test, and orchestrate command-line tasks—using simple YAML files or Go code.
 
-.. note::
-   This project is under active development. Feedback and contributions are welcome!
+- **No Go experience needed!** Start with YAML.
+- **Go power user?** Use the Go API for full control.
+
+Who is this for?
+----------------
+- Developers (all levels)
+- Testers and QA
+- DevOps and SREs
+- CI/CD engineers
+- Anyone who wants to automate CLI workflows, with or without coding
+
+What can you build?
+-------------------
+- Automated shell/Docker workflows
+- End-to-end tests for CLI tools
+- DevOps and CI/CD pipelines
+- Custom workflow plugins
+
+.. image:: _static/iapetus-diagram.png
+   :alt: iapetus workflow diagram
+
+**Start here:**
+- :doc:`quickstart`
+- :doc:`concepts`
+- :doc:`tutorials`
+- :doc:`howto`
+- :doc:`api`
+- :doc:`yaml`
+- :doc:`faq`
+- :doc:`contributing`
 
 Project Links
 -------------
 
 - `GitHub Repository <https://github.com/yindia/iapetus>`_
-- `Main README <../README.md>`_
-- `Usage Guide <../USAGE.md>`_
-- `API & YAML Reference <../REFERENCE.md>`_
-- `Contributing Guide <../CONTRIBUTING.md>`_
-
-Installation
-------------
-
-.. code-block:: shell
-
-   git clone https://github.com/yindia/iapetus.git
-   cd iapetus
-   go mod tidy
-
-Contents
---------
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Documentation
-
-   Home <self>
-   usage
-   api
-   contributing
-
-Getting Started
----------------
-
-See the :doc:`usage` section for a quickstart, workflow/task examples, and best practices.
-
-For advanced usage, see the :doc:`api` reference.
-
-If you'd like to contribute, see :doc:`contributing`.
+- `
