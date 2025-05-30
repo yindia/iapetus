@@ -137,16 +137,6 @@ graph TD
 
 ---
 
-## 💬 What Users Say
-
-> "iapetus made our CLI tests 10x faster and more reliable."  
-> — DevOps Lead, Acme Corp
-
-> "Finally, a workflow engine that's easy to hack and extend!"  
-> — OSS Maintainer
-
----
-
 ## 📚 Learn More
 
 - [Usage Guide](USAGE.md)
@@ -155,7 +145,7 @@ graph TD
 - [YAML Example](example/yaml/workflow_docker.yaml)
 - [Go API Example](example/docker/main.go)
 - [FAQ](#faq)
-- [Contributing Guide](#contributing)
+- [Contributing Guide](CONTRIBUTING.md)
 
 ---
 
@@ -163,7 +153,6 @@ graph TD
 
 - [Discussions](https://github.com/yindia/iapetus/discussions)
 - [Issues](https://github.com/yindia/iapetus/issues)
-- [Twitter](https://twitter.com/yourhandle)
 
 ---
 
@@ -183,11 +172,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get started.
 ## 📜 License
 
 MIT
-
----
-
-**iapetus** — Automate. Test. Orchestrate.  
-*The workflow engine you always wanted, now open source.*
 
 ---
 
