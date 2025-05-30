@@ -1,28 +1,38 @@
-# YAML Workflow Examples for iapetus
+# YAML Example: iapetus
 
-This directory demonstrates how to define and run iapetus workflows using YAML configuration files.
+This directory shows how to use **iapetus** with a YAML workflow file. You don't need to know Go to get started!
 
-## How it works
-- Workflows are defined in YAML (see `workflow_docker.yaml`).
-- Assertions are specified in the `raw_asserts` field for each task.
-- The Go loader (`iapetus.LoadWorkflowFromYAML`) parses the YAML, converts assertions, and returns a ready-to-run workflow.
+## What does this example do?
+- Runs a simple workflow defined in `workflow_docker.yaml`
+- Each step runs a command (like `echo hello`) and checks the result
+- Shows how to use Docker as a backend (runs commands in containers)
 
-## Running the Docker YAML Example
+## How to run the example
 
-1. Make sure you have Docker installed and available in your PATH.
-2. Run the example:
+1. **Install Go** ([instructions](https://golang.org/dl/))
+2. **Clone the repo**
+   ```sh
+   git clone https://github.com/yindia/iapetus.git
+   cd iapetus/example/yaml
+   ```
+3. **Run the example**
+   ```sh
+   go run main_docker.go
+   ```
 
-```sh
-cd example/yaml
-# Make sure dependencies are installed (from repo root):
-# go mod tidy
-# Run the YAML workflow example:
-go run main_docker.go
-```
+You should see output for each step, showing if it passed or failed.
 
-You should see output for each task, and the workflow will complete successfully if all assertions pass.
+## How to modify the workflow
+- Edit `workflow_docker.yaml` to add, remove, or change steps
+- You can change commands, arguments, environment variables, and assertions
+- Save the file and re-run `go run main_docker.go` to see your changes
 
-## Pattern
-- Use `raw_asserts` in YAML for all supported assertion types.
-- No post-processing is needed after loading: the loader handles conversion.
-- See the main README for more details and advanced usage. 
+## Troubleshooting
+- If you see "command not found", make sure the command exists in the Docker image
+- If you see Go errors, check that Go is installed and your `GOPATH` is set up
+- For Docker errors, make sure Docker is running on your system
+
+## More resources
+- [iapetus README](../../README.md)
+- [Go by Example](https://gobyexample.com/)
+- [YAML Tutorial](https://learnxinyminutes.com/docs/yaml/) 

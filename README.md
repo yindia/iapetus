@@ -6,13 +6,117 @@
 
 ---
 
-> ⚠️ **WARNING: iapetus is under heavy development. The API is experimental and subject to change.**
-> 
-> Please pin versions and review changelogs before upgrading. Feedback and contributions are welcome!
+# 🏁 What is iapetus? (For Beginners)
+
+**iapetus** is a tool that helps you automate and test command-line tasks. You can use it to:
+- Run a series of commands (like scripts or CLI tools)
+- Check if each command worked (using "assertions")
+- Chain commands together, so some run only if others succeed
+- Run commands in parallel, or in containers (like Docker)
+
+You can define your workflow in a simple YAML file, or write it in Go code.
+
+**No Go experience?**
+Start with the YAML example in `example/yaml/workflow_docker.yaml` and run it with:
+
+```sh
+cd example/yaml
+go run main_docker.go
+```
 
 ---
 
-> ⭐ **If you like this project, please [star us on GitHub](https://github.com/yindia/iapetus/stargazers)!**
+## 🗝️ Key Concepts
+
+- **Workflow**: A list of steps (tasks) you want to run, possibly with dependencies between them.
+- **Task**: A single command or script to run (like `echo hello` or `docker run ...`).
+- **Backend**: The environment where a task runs. For example, "bash" runs commands on your computer, "docker" runs them in a container.
+- **Assertion**: A check to make sure a task did what you expected (like "did the output contain 'success'?").
+- **Plugin**: An extension that adds new ways to run tasks (like support for Docker, Kubernetes, etc.).
+
+---
+
+## 👀 Visual Overview
+
+```mermaid
+flowchart TD
+    A[Workflow] --> B[Task 1]
+    A --> C[Task 2]
+    B --> D[Task 3]
+    C --> D
+    D --> E[Result: Success or Failure]
+```
+
+- Tasks can depend on each other (e.g., Task 3 runs after Task 1 and Task 2).
+- Each task runs a command and checks the result.
+
+---
+
+## 🚦 Quickstart (Step-by-Step)
+
+### 1. Install Go
+- Download and install Go from [golang.org](https://golang.org/dl/).
+- Check it's installed:
+  ```sh
+  go version
+  ```
+
+### 2. Clone the iapetus repo
+```sh
+git clone https://github.com/yindia/iapetus.git
+cd iapetus
+```
+
+### 3. Run a simple example
+```sh
+cd example/yaml
+go run main_docker.go
+```
+
+**What should happen:**
+You should see output showing each step running, and whether it passed or failed.
+
+---
+
+## 📝 YAML vs Go: Which Should I Use?
+
+- **YAML**: Use this if you want to define your workflow in a config file (no coding required).
+- **Go**: Use this if you want more control, or want to integrate with other Go code.
+
+**YAML Example:**
+```yaml
+name: hello-workflow
+steps:
+  - name: say-hello
+    command: echo
+    args: ["hello world"]
+    raw_asserts:
+      - output_contains: hello
+```
+
+**Go Example:**
+```go
+task := iapetus.NewTask("say-hello", 2*time.Second, nil).
+    AddCommand("echo").
+    AddArgs("hello world").
+    AssertOutputContains("hello")
+workflow := iapetus.NewWorkflow("hello-workflow", zap.NewNop()).AddTask(*task)
+workflow.Run()
+```
+
+---
+
+## 🛠️ Troubleshooting & FAQ
+
+**Common Issues:**
+- "command not found": Make sure the command exists on your system.
+- "permission denied": Try running with the right permissions.
+- "Go not installed": Install Go from [golang.org](https://golang.org/dl/).
+
+**Where to get help:**
+- [iapetus Issues](https://github.com/yindia/iapetus/issues)
+- [Go by Example](https://gobyexample.com/)
+- [YAML Tutorial](https://learnxinyminutes.com/docs/yaml/)
 
 ---
 
