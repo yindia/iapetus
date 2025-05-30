@@ -149,7 +149,9 @@ graph TD
 
 ## 📚 Learn More
 
-- [Full Documentation](https://pkg.go.dev/github.com/yindia/iapetus)
+- [Usage Guide](USAGE.md)
+- [API & YAML Reference](REFERENCE.md)
+- [Full GoDoc](https://pkg.go.dev/github.com/yindia/iapetus)
 - [YAML Example](example/yaml/workflow_docker.yaml)
 - [Go API Example](example/docker/main.go)
 - [FAQ](#faq)
