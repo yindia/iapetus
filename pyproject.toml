@@ -1,0 +1,8 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "iapetus"
+authors = [{name = "Yuvraj",email = "evalsocket@gmail.com"}]
+dynamic = ["version", "description"]
