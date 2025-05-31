@@ -1,27 +1,79 @@
-# Example iapetus workflow using YAML and the docker backend
-name: docker-yaml-demo
-backend: docker
+# Example iapetus workflow using YAML with docker, kubectl, and bash backends
+name: multi-backend-demo
+backend: docker  # Default backend (can be overridden per task)
 env_map:
   GLOBAL_ENV: global_value
 steps:
-  - name: echo-hello
+  # --- Bash Backend Tasks ---
+  - name: bash-hello
+    backend: bash
+    command: echo
+    args: ["hello from bash"]
+    env_map:
+      TASK_ENV: bash_hello
+    raw_asserts:
+      - exit_code: 0
+      - output_contains: bash
+      - output_equals: "hello from bash\n"
+
+  - name: bash-list
+    backend: bash
+    command: ls
+    args: ["-l", "/tmp"]
+    depends: [bash-hello]
+    raw_asserts:
+      - exit_code: 0
+
+  # --- Docker Backend Tasks ---
+  - name: docker-echo
+    backend: docker
     command: echo
     args: ["hello from docker"]
     image: alpine:3.18
     env_map:
-      TASK_ENV: hello
+      TASK_ENV: docker_hello
     raw_asserts:
       - exit_code: 0
-      - output_contains: hello
+      - output_contains: docker
       - output_equals: "hello from docker\n"
-      - output_matches_regexp: '^hello.*$'
-  - name: echo-json
+
+  - name: docker-json
+    backend: docker
     command: sh
     args: ["-c", "echo '{\"foo\": 1, \"bar\": 2}'"]
     image: alpine:3.18
-    depends: [echo-hello]
+    depends: [docker-echo]
     raw_asserts:
       - exit_code: 0
       - output_json_equals: '{"foo": 1, "bar": 2}'
       - output_contains: '"foo": 1'
-      - output_contains: '"bar": 2' 
+      - output_contains: '"bar": 2'
+
+  # --- Kubernetes Backend Tasks (Demo Only) ---
+  - name: kubectl-version
+    backend: bash
+    command: echo
+    args: ["fake kubectl version output: clientVersion: v1.29.0"]
+    raw_asserts:
+      - exit_code: 0
+      - output_contains: "clientVersion"
+
+  - name: kubectl-get-ns
+    backend: bash
+    command: echo
+    args: ["{\"items\": [{\"name\": \"default\"}]}" ]
+    depends: [kubectl-version]
+    raw_asserts:
+      - exit_code: 0
+      - output_contains: "items"
+      - output_matches_regexp: '"name":\s*"default"'
+
+  # --- Cross-backend Dependencies ---
+  - name: all-done
+    backend: bash
+    command: echo
+    args: ["All backends completed!"]
+    depends: [bash-list, docker-json, kubectl-get-ns]
+    raw_asserts:
+      - exit_code: 0
+      - output_equals: "All backends completed!\n" 
