@@ -40,15 +40,6 @@ archives:
       - goos: windows
         formats: [zip]
 
-homebrew_casks:
-  name: iapetus
-  binary: iapetus
-  directory: Casks
-  repository:
-    owner: yindia
-    name: iapetus
-  description: "The open-source workflow engine for DevOps, CI/CD, and automation."
-
 
 changelog:
   sort: asc
