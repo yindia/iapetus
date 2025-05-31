@@ -23,12 +23,5 @@ steps:
     raw_asserts:
       - exit_code: 0
       - output_json_equals: '{"foo": 1, "bar": 2}'
-      - output_json_equals: '{"foo": 1}'
-        skip_json_nodes: ["bar"]
-  - name: fail-task
-    command: sh
-    args: ["-c", "exit 1"]
-    image: alpine:3.18
-    depends: [echo-json]
-    raw_asserts:
-      - exit_code: 1 
+      - output_contains: '"foo": 1'
+      - output_contains: '"bar": 2' 

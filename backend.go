@@ -1,3 +1,20 @@
+// Package iapetus provides a plugin-based workflow engine for automating and testing command-line tasks.
+//
+// The backend subpackage defines the Backend interface and built-in backends (bash, docker).
+// Plugin authors can implement custom backends by satisfying the Backend interface and registering them with RegisterBackend.
+//
+// # Backend Plugin System
+//
+// - Implement the Backend interface for your environment (e.g., Kubernetes, SSH, etc).
+// - Register your backend in an init() function using RegisterBackend.
+// - Tasks and workflows can select a backend by name.
+//
+// # Built-in Backends
+//
+// - BashBackend: Runs tasks as local shell commands.
+// - DockerBackend: Runs tasks in Docker containers (requires task.Image).
+//
+// See the documentation for more details and examples.
 package iapetus
 
 import (
@@ -10,16 +27,24 @@ import (
 	"go.uber.org/zap"
 )
 
+// init registers the built-in backends (bash, docker) at startup.
 func init() {
 	RegisterBackend("bash", &BashBackend{})
 	RegisterBackend("docker", &DockerBackend{})
 }
 
 // Backend is the interface for task execution plugins.
+//
+// Implement this interface to add a new backend (e.g., for Docker, Kubernetes, SSH, etc).
+// Register your backend with RegisterBackend.
 type Backend interface {
+	// RunTask executes the given task and populates its Actual fields.
 	RunTask(task *Task) error
+	// ValidateTask checks if the task is valid for this backend.
 	ValidateTask(task *Task) error
+	// GetName returns the backend's name (for registry and diagnostics).
 	GetName() string
+	// GetStatus returns a status string (e.g., "available", "unavailable").
 	GetStatus() string
 }
 
@@ -27,6 +52,7 @@ type Backend interface {
 var backendRegistry = map[string]Backend{}
 
 // RegisterBackend registers a backend plugin by name.
+//
 // Plugin authors: call this in your plugin's init() function.
 func RegisterBackend(name string, backend Backend) {
 	backendRegistry[name] = backend
@@ -40,12 +66,17 @@ func GetBackend(name string) Backend {
 	return nil
 }
 
+// BashBackend runs tasks as local shell commands.
 type BashBackend struct{}
 
+// ValidateTask always returns nil for BashBackend (all commands allowed).
 func (b *BashBackend) ValidateTask(t *Task) error {
 	return nil
 }
 
+// RunTask executes the task as a local shell command.
+// Merges environment variables from os.Environ and task.EnvMap.
+// Populates task.Actual.Output, ExitCode, and Error.
 func (b *BashBackend) RunTask(t *Task) error {
 	t.EnsureDefaults()
 	ctx, cancel := context.WithTimeout(context.Background(), t.Timeout)
@@ -94,17 +125,21 @@ func (b *BashBackend) RunTask(t *Task) error {
 	return nil
 }
 
+// GetName returns the backend name ("bash").
 func (b *BashBackend) GetName() string {
 	return "bash"
 }
 
+// GetStatus returns "available" for BashBackend.
 func (b *BashBackend) GetStatus() string {
 	return "available"
 }
 
+// DockerBackend runs tasks in Docker containers.
 type DockerBackend struct{}
 
 // ValidateTask checks if the task is valid for Docker execution.
+// Requires task.Image and task.Command to be set.
 func (d *DockerBackend) ValidateTask(task *Task) error {
 	if task.Image == "" {
 		return fmt.Errorf("docker backend requires task.Image to be set")
@@ -116,6 +151,8 @@ func (d *DockerBackend) ValidateTask(task *Task) error {
 }
 
 // RunTask executes the task in a Docker container.
+// Passes environment variables, working directory, and arguments to the container.
+// Populates task.Actual.Output, ExitCode, and Error.
 func (d *DockerBackend) RunTask(task *Task) error {
 	if err := d.ValidateTask(task); err != nil {
 		return err
@@ -153,10 +190,12 @@ func (d *DockerBackend) RunTask(task *Task) error {
 	return nil
 }
 
+// GetName returns the backend name ("docker").
 func (d *DockerBackend) GetName() string {
 	return "docker"
 }
 
+// GetStatus returns "available" if Docker is installed, else "unavailable".
 func (d *DockerBackend) GetStatus() string {
 	if _, err := exec.LookPath("docker"); err == nil {
 		return "available"

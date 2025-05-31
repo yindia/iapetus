@@ -143,50 +143,39 @@ func TestTask_ExpectDSL(t *testing.T) {
 	}
 }
 
+func registerTestBackend(t *testing.T, name string, backend iapetus.Backend) {
+	iapetus.RegisterBackend(name, backend)
+	t.Cleanup(func() {
+		// No-op: add backend registry reset here if needed for isolation
+	})
+}
+
 func TestTask_EnvVars(t *testing.T) {
-	t.Run("only EnvMap", func(t *testing.T) {
-		b := &iapetus.BashBackend{}
-		task := &iapetus.Task{
-			Command: "sh",
-			Args:    []string{"-c", "echo $FOO"},
-			EnvMap:  map[string]string{"FOO": "bar"},
-			Asserts: []func(*iapetus.Task) error{iapetus.AssertOutputEquals("bar\n")},
-		}
-		task.SetBackend("bash")
-		iapetus.RegisterBackend("bash", b)
-		if err := task.Run(); err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
-	})
-
-	t.Run("EnvMap wins", func(t *testing.T) {
-		b := &iapetus.BashBackend{}
-		task := &iapetus.Task{
-			Command: "sh",
-			Args:    []string{"-c", "echo $FOO"},
-			EnvMap:  map[string]string{"FOO": "baz"},
-			Asserts: []func(*iapetus.Task) error{iapetus.AssertOutputEquals("baz\n")},
-		}
-		task.SetBackend("bash")
-		iapetus.RegisterBackend("bash", b)
-		if err := task.Run(); err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
-	})
-
-	t.Run("no envs, default", func(t *testing.T) {
-		b := &iapetus.BashBackend{}
-		task := &iapetus.Task{
-			Command: "sh",
-			Args:    []string{"-c", "echo $FOO"},
-			Asserts: []func(*iapetus.Task) error{iapetus.AssertOutputEquals("\n")},
-		}
-		task.SetBackend("bash")
-		iapetus.RegisterBackend("bash", b)
-		if err := task.Run(); err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
-	})
+	cases := []struct {
+		name   string
+		env    map[string]string
+		expect string
+	}{
+		{"only EnvMap", map[string]string{"FOO": "bar"}, "bar\n"},
+		{"EnvMap wins", map[string]string{"FOO": "baz"}, "baz\n"},
+		{"no envs, default", nil, "\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			b := &iapetus.BashBackend{}
+			task := &iapetus.Task{
+				Command: "sh",
+				Args:    []string{"-c", "echo $FOO"},
+				EnvMap:  tc.env,
+				Asserts: []func(*iapetus.Task) error{iapetus.AssertOutputEquals(tc.expect)},
+			}
+			task.SetBackend("bash")
+			registerTestBackend(t, "bash", b)
+			if err := task.Run(); err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+		})
+	}
 }
 
 // --- Additional tests for Task backend/logger/env/validation ---
