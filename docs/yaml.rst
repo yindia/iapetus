@@ -1,10 +1,14 @@
 YAML Reference
 ==============
 
+.. raw:: html
+
+   <hr style="margin-top: 0; margin-bottom: 1.5em; border: none; border-top: 2px solid #eee;"/>
+
 iapetus workflows can be defined in YAML for easy, no-code automation. This page explains the YAML schema, field meanings, and best practices.
 
-YAML Schema
------------
+YAML Schema 📝
+-------------
 
 A typical workflow YAML file looks like this:
 
@@ -42,14 +46,16 @@ A typical workflow YAML file looks like this:
 - `depends`: List of step names this step depends on (for ordering and parallelism).
 - `raw_asserts`: List of assertions to check after the step runs.
 
-**Tips:**
-- Indent with spaces, not tabs.
-- Use quotes for strings with special characters.
-- You can override the backend, env, and timeout per step.
-- Steps without `depends` run in parallel.
+.. admonition:: Tips
+   :class: tip
 
-Supported assertion types:
--------------------------
+   - Indent with spaces, not tabs.
+   - Use quotes for strings with special characters.
+   - You can override the backend, env, and timeout per step.
+   - Steps without `depends` run in parallel.
+
+Supported assertion types ✅
+---------------------------
 - `exit_code: 0` — Check the exit code of the command.
 - `output_equals: "foo"` — Output must exactly match the string.
 - `output_contains: "bar"` — Output must contain the substring.
@@ -57,14 +63,14 @@ Supported assertion types:
 - `output_matches_regexp: '^foo.*$'` — Output must match the regular expression.
 - `skip_json_nodes: ["foo.bar"]` — Used with JSON assertions to ignore certain fields.
 
-Backend options:
-----------------
+Backend options 🔌
+-----------------
 - `bash`: Runs the command in your local shell (default, works everywhere).
 - `docker`: Runs the command in a Docker container (requires `image`).
 - Custom: You can register your own backend in Go and reference it by name.
 
-Example: Minimal Workflow
-------------------------
+Example: Minimal Workflow 🌱
+---------------------------
 
 .. code-block:: yaml
 
@@ -76,8 +82,8 @@ Example: Minimal Workflow
        raw_asserts:
          - output_contains: Hello
 
-Example: Docker Workflow
------------------------
+Example: Docker Workflow 🐳
+--------------------------
 
 .. code-block:: yaml
 
@@ -91,4 +97,8 @@ Example: Docker Workflow
        raw_asserts:
          - output_contains: hello
 
-See also: :doc:`api` for Go API details and advanced usage. 
+See also: :doc:`api` for Go API details and advanced usage.
+
+.. raw:: html
+
+   <hr style="margin-top: 1.5em; margin-bottom: 0; border: none; border-top: 2px solid #eee;"/> 

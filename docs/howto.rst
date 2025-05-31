@@ -1,10 +1,14 @@
 How-To Recipes
 ==============
 
+.. raw:: html
+
+   <hr style="margin-top: 0; margin-bottom: 1.5em; border: none; border-top: 2px solid #eee;"/>
+
 This section answers common questions and shows practical patterns for using iapetus. Each recipe includes a short explanation and example.
 
-How do I run a shell command and check output?
-----------------------------------------------
+How do I run a shell command and check output? 📝
+------------------------------------------------
 To run a shell command and assert on its output, define a step with the command, arguments, and an assertion:
 
 .. code-block:: yaml
@@ -19,8 +23,8 @@ To run a shell command and assert on its output, define a step with the command,
 - `raw_asserts` lets you check output, exit code, or other conditions.
 - You can use multiple assertions per step.
 
-How do I run steps in parallel?
--------------------------------
+How do I run steps in parallel? ⚡️
+----------------------------------
 By default, steps without dependencies run in parallel. Just define them without `depends`:
 
 .. code-block:: yaml
@@ -35,8 +39,8 @@ By default, steps without dependencies run in parallel. Just define them without
 
 - If you want sequential execution, use `depends` to specify dependencies.
 
-How do I pass environment variables?
-------------------------------------
+How do I pass environment variables? 🌱
+--------------------------------------
 Use `env_map` in YAML or `EnvMap` in Go to set environment variables for a step or the whole workflow.
 
 .. code-block:: yaml
@@ -50,8 +54,8 @@ Use `env_map` in YAML or `EnvMap` in Go to set environment variables for a step 
 
 - Per-step `env_map` overrides workflow-level variables.
 
-How do I retry on failure?
---------------------------
+How do I retry on failure? 🔁
+----------------------------
 Set `retries` in YAML or `task.Retries` in Go to automatically retry a step if it fails.
 
 .. code-block:: yaml
@@ -67,8 +71,8 @@ Set `retries` in YAML or `task.Retries` in Go to automatically retry a step if i
 
 - Retries are useful for flaky network or integration steps.
 
-How do I use Docker for isolation?
-----------------------------------
+How do I use Docker for isolation? 🐳
+------------------------------------
 Run steps in containers by setting `backend: docker` and specifying an `image`.
 
 .. code-block:: yaml
@@ -83,8 +87,8 @@ Run steps in containers by setting `backend: docker` and specifying an `image`.
 - Use Docker to match production environments or isolate dependencies.
 - You can set the default backend for all steps at the workflow level.
 
-How do I add a custom check/assertion?
---------------------------------------
+How do I add a custom check/assertion? 🧪
+----------------------------------------
 You can add custom assertions in Go for advanced checks:
 
 .. code-block:: go
@@ -99,9 +103,13 @@ You can add custom assertions in Go for advanced checks:
 - Custom assertions let you check any property of the task result.
 - You can combine built-in and custom assertions.
 
-How do I debug a failing workflow?
-----------------------------------
+How do I debug a failing workflow? 🐞
+------------------------------------
 - Check the output and error logs for each step (see `t.Actual.Output` and `t.Actual.Error`).
 - Use hooks to add custom logging or metrics (see the Concepts and API docs).
 - Run with increased logging or in a local shell for easier troubleshooting.
-- See :doc:`faq` for more tips and common issues. 
+- See :doc:`faq` for more tips and common issues.
+
+.. raw:: html
+
+   <hr style="margin-top: 1.5em; margin-bottom: 0; border: none; border-top: 2px solid #eee;"/> 

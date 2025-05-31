@@ -1,5 +1,3 @@
-# ⚠️ API subject to change! iapetus is in heavy development. Expect breaking changes. ⚠️
-
 # iapetus 🚀
 
 **The Open Source Workflow Engine for DevOps, CI/CD, and Automation**
@@ -10,11 +8,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
-
 > **Automate, test, and orchestrate anything that runs in a shell, container, or cloud.**  
 > **No YAML hell. No vendor lock-in. 100% open source.**
 
 ---
+
+# ⚠️ API subject to change! iapetus is in heavy development. Expect breaking changes. ⚠️
+
 
 ## ✨ Why iapetus?
 
