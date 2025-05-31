@@ -30,7 +30,8 @@ It's like GitHub Actions, but local, hackable, and embeddable in your Go code or
 
 ## 🚀 Demo
 
-![Demo GIF](https://user-images.githubusercontent.com/your/demo.gif)
+![demo](https://github.com/user-attachments/assets/521ce88d-609d-44bb-a605-244eb80429f9)
+
 *Run complex workflows, see real-time results, and catch errors instantly!*
 
 ---
