@@ -26,17 +26,15 @@ What can you build?
 .. image:: _static/iapetus-diagram.png
    :alt: iapetus workflow diagram
 
-**Start here:**
-- :doc:`quickstart`
-- :doc:`concepts`
-- :doc:`tutorials`
-- :doc:`howto`
-- :doc:`api`
-- :doc:`yaml`
-- :doc:`faq`
-- :doc:`contributing`
+.. toctree::
+   :maxdepth: 2
+   :caption: Documentation
 
-Project Links
--------------
-
-- `GitHub Repository <https://github.com/yindia/iapetus>`_
+   quickstart
+   concepts
+   tutorials
+   howto
+   api
+   yaml
+   faq
+   contributing
