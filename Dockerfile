@@ -10,7 +10,7 @@ RUN go mod download
 # Copy the rest of the source
 COPY . .
 # Build the iapetus binary (adjust path if needed)
-RUN go build -o /iapetus ./cmd/iapetus
+RUN go build -o /iapetus ./cmd/main.go
 
 # --- Runtime stage ---
 FROM alpine:3.18
