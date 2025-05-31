@@ -14,13 +14,13 @@
 
 ---
 
-## Why iapetus?
+## ✨ Why iapetus?
 
-- **Lightning-fast**: Parallel, dependency-aware execution
-- **Pluggable**: Bash, Docker, and custom backends
-- **Assertions**: Output, exit code, JSON, regex, and more
-- **YAML or Go**: Use as config or code
-- **Battle-tested**: For CI/CD, DevOps, and E2E testing
+- ⚡️ **Lightning-fast**: Parallel, dependency-aware execution
+- 🔌 **Pluggable**: Bash, Docker, and custom backends
+- 🧪 **Assertions**: Output, exit code, JSON, regex, and more
+- 📝 **YAML or Go**: Use as config or code
+- 🛡️ **Battle-tested**: For CI/CD, DevOps, and E2E testing
 
 ---
 
@@ -30,7 +30,7 @@
 
 ---
 
-## Quickstart
+## ⚡️ Quickstart
 
 ```sh
 git clone https://github.com/yindia/iapetus.git
@@ -40,7 +40,7 @@ go run main_docker.go
 
 ---
 
-## Example: YAML Workflow
+## 📝 Example: YAML Workflow
 
 ```yaml
 name: hello-world
@@ -54,7 +54,7 @@ steps:
 
 ---
 
-## Example: Go API
+## 💻 Example: Go API
 
 ```go
 task := iapetus.NewTask("say-hello", 2*time.Second, nil).
@@ -67,38 +67,27 @@ workflow.Run()
 
 ---
 
-## Features
+## 🧩 Features
 
-- **Parallel, dependency-aware execution**
-- **Built-in & custom assertions**
-- **Retries, timeouts, env vars, container images**
-- **Plugin backends**: Bash, Docker, and more
-- **Hooks for logging, metrics, and custom logic**
-- **Beautiful logs and error reporting**
-
----
-
-## Learn More
-
-- **Docs:** [iapetus.readthedocs.io/en/latest/index.html](https://iapetus.readthedocs.io/en/latest/index.html)
-- [API Reference](https://iapetus.readthedocs.io/en/latest/api.html)
-- [YAML Reference](https://iapetus.readthedocs.io/en/latest/yaml.html)
-- [FAQ](https://iapetus.readthedocs.io/en/latest/faq.html)
-- [Contributing Guide](https://iapetus.readthedocs.io/en/latest/contributing.html)
+- 🔄 **Parallel, dependency-aware execution**
+- ✅ **Built-in & custom assertions**
+- ⏱️ **Retries, timeouts, env vars, container images**
+- 🔌 **Plugin backends**: Bash, Docker, and more
+- 🪝 **Hooks for logging, metrics, and custom logic**
+- 📊 **Beautiful logs and error reporting**
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
-We welcome PRs, issues, and feedback!  
-See [Contributing Guide](https://iapetus.readthedocs.io/en/latest/contributing.html).
+We welcome PRs, issues, and feedback! See [Contributing Guide](https://iapetus.readthedocs.io/en/latest/contributing.html).
 
 ---
 
-## License
+## 📜 License
 
 MIT
 
 ---
 
-**Star iapetus if you love it!** ⭐️
+🌟 **Star iapetus if you love it!**
