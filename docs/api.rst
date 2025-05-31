@@ -1,8 +1,12 @@
 API Reference
 ============
 
+This page documents the main Go API for iapetus. It covers the core structs, interfaces, and extension points. For YAML usage, see the YAML Reference.
+
 Workflow Struct
 ---------------
+
+The `Workflow` struct defines a collection of tasks, their dependencies, and global configuration. It is the top-level object for running a workflow.
 
 .. code-block:: go
 
@@ -14,8 +18,27 @@ Workflow Struct
        // ... hooks, logger, etc.
    }
 
+**Fields:**
+- `Name`: Human-readable workflow name.
+- `Steps`: List of tasks (see below).
+- `Backend`: Default backend for all steps (can be overridden per-task).
+- `EnvMap`: Environment variables for all steps (can be overridden per-task).
+- Hooks, logger, and other advanced fields are available for extensibility.
+
+**Usage Example:**
+
+.. code-block:: go
+
+   wf := iapetus.NewWorkflow("my-wf", zap.NewNop())
+   wf.Backend = "bash"
+   wf.EnvMap = map[string]string{"FOO": "bar"}
+   wf.AddTask(*task)
+   wf.Run()
+
 Task Struct
 -----------
+
+A `Task` represents a single step in a workflow. Each task can have its own command, arguments, environment, timeout, assertions, and backend.
 
 .. code-block:: go
 
@@ -32,34 +55,81 @@ Task Struct
        Backend  string                // Backend for this task (overrides workflow default)
    }
 
+**Fields:**
+- `Name`: Unique name for the task.
+- `Command`: The executable or shell command.
+- `Args`: Arguments to pass to the command.
+- `Timeout`: Maximum allowed execution time (default: 30s).
+- `Retries`: Number of times to retry on failure.
+- `Depends`: List of task names this task depends on (for DAG execution).
+- `EnvMap`: Environment variables for this task (overrides workflow-level vars).
+- `Image`: Docker image (for Docker backend).
+- `Asserts`: List of assertion functions (see below).
+- `Backend`: Backend to use for this task (overrides workflow default).
+
+**Usage Example:**
+
+.. code-block:: go
+
+   task := iapetus.NewTask("hello", 5*time.Second, nil).
+       AddCommand("echo").
+       AddArgs("Hello, world!").
+       AssertOutputContains("Hello")
+   task.Timeout = 10 * time.Second
+   task.Retries = 2
+   task.EnvMap = map[string]string{"FOO": "bar"}
+   task.Backend = "docker"
+   task.Image = "alpine:3.18"
+
 Backend Interface & Plugins
 --------------------------
+
+The `Backend` interface allows you to add new ways to run tasks (e.g., Docker, Kubernetes, SSH). Built-in backends include Bash and Docker.
 
 .. code-block:: go
 
    type Backend interface {
        RunTask(task *Task) error
        ValidateTask(task *Task) error
+       GetName() string
+       GetStatus() string
    }
 
-To register a backend:
+- `RunTask`: Executes the given task and populates its result fields.
+- `ValidateTask`: Checks if the task is valid for this backend (e.g., required fields).
+- `GetName`: Returns the backend's name (for registry and diagnostics).
+- `GetStatus`: Returns a status string (e.g., "available", "unavailable").
+
+**Registering a Backend:**
 
 .. code-block:: go
 
    iapetus.RegisterBackend("my-backend", &MyBackend{})
 
+**Example Plugin:**
+
+.. code-block:: go
+
+   type MyBackend struct{}
+   func (b *MyBackend) RunTask(task *iapetus.Task) error { /* ... */ }
+   func (b *MyBackend) ValidateTask(task *iapetus.Task) error { return nil }
+   func (b *MyBackend) GetName() string { return "my-backend" }
+   func (b *MyBackend) GetStatus() string { return "available" }
+
 Assertion Functions
 -------------------
 
-Built-in assertions:
+Assertions are checks that validate the result of a task. You can use built-in assertions or write your own.
 
-- AssertExitCode(expected int)
-- AssertOutputEquals(expected string)
-- AssertOutputContains(substr string)
-- AssertOutputJsonEquals(expected string, skipJsonNodes ...string)
-- AssertOutputMatchesRegexp(pattern string)
+**Built-in assertions:**
 
-Custom assertion example:
+- `AssertExitCode(expected int)`
+- `AssertOutputEquals(expected string)`
+- `AssertOutputContains(substr string)`
+- `AssertOutputJsonEquals(expected string, skipJsonNodes ...string)`
+- `AssertOutputMatchesRegexp(pattern string)`
+
+**Custom assertion example:**
 
 .. code-block:: go
 
@@ -75,15 +145,17 @@ Custom assertion example:
 Hooks
 -----
 
-Hooks let you run custom logic on task events:
+Hooks let you run custom logic on task events. Use hooks for logging, metrics, or notifications.
 
-- AddOnTaskStartHook(func(*Task))
-- AddOnTaskSuccessHook(func(*Task))
-- AddOnTaskFailureHook(func(*Task, error))
-- AddOnTaskCompleteHook(func(*Task))
+- `AddOnTaskStartHook(func(*Task))`
+- `AddOnTaskSuccessHook(func(*Task))`
+- `AddOnTaskFailureHook(func(*Task, error))`
+- `AddOnTaskCompleteHook(func(*Task))`
 
 YAML Schema Reference
 ---------------------
+
+For YAML usage, see the YAML Reference. Example:
 
 .. code-block:: yaml
 
@@ -97,6 +169,7 @@ YAML Schema Reference
        args: ["hello"]
        timeout: 5s
        backend: docker # optional, overrides workflow backend
+       image: alpine:3.18
        env_map:
          BAR: baz
        raw_asserts:
@@ -104,11 +177,11 @@ YAML Schema Reference
 
 Supported assertion types in YAML:
 
-- exit_code: 0
-- output_equals: "foo"
-- output_contains: "bar"
-- output_json_equals: '{"foo": 1}'
-- output_matches_regexp: '^foo.*$'
-- skip_json_nodes: ["foo.bar"] (for JSON assertions)
+- `exit_code: 0`
+- `output_equals: "foo"`
+- `output_contains: "bar"`
+- `output_json_equals: '{"foo": 1}'`
+- `output_matches_regexp: '^foo.*$'`
+- `skip_json_nodes: ["foo.bar"]` (for JSON assertions)
 
 For more, see the `GoDoc <https://pkg.go.dev/github.com/yindia/iapetus>`_. 

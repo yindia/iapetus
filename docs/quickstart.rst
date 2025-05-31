@@ -14,7 +14,7 @@ Step 2: Clone the Repo and Run the Example
 
    git clone https://github.com/yindia/iapetus.git
    cd iapetus/example/yaml
-   go run main_docker.go
+   go run main.go
 
 You should see output for each step, showing if it passed or failed.
 
@@ -24,7 +24,7 @@ Open `workflow_docker.yaml` in your editor. Change the command or arguments, sav
 
 .. code-block:: shell
 
-   go run main_docker.go
+   go run main.go
 
 **Next steps:**
 - :doc:`tutorials`

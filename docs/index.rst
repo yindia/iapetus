@@ -1,20 +1,28 @@
 .. iapetus documentation master file
 
-Welcome to iapetus!
-===================
+Welcome to iapetus! 🚀
+======================
+
+**The open source workflow engine for DevOps, CI/CD, and automation.**
 
 .. toctree::
    :maxdepth: 2
 
    quickstart
 
-This is the home page.
+**Automate, test, and orchestrate anything that runs in a shell, container, or cloud.**
 
-**iapetus** helps you automate, test, and orchestrate command-line tasks—using simple YAML files or Go code.
+- ⚡️ Fast, parallel, dependency-aware execution
+- 🔌 Plugin backends: Bash, Docker, and more
+- 🧪 Built-in assertions and custom checks
+- 📝 Write workflows in YAML or Go
+- 🛡️ Battle-tested for CI/CD, DevOps, and E2E testing
+
+**[👉 Get Started in 2 Minutes (Quickstart)](quickstart.html)**
 
 .. toctree::
    :maxdepth: 2
-   :caption: Documentation
+   :caption: 📚 Documentation
 
    concepts
    tutorials
@@ -24,20 +32,17 @@ This is the home page.
    faq
    contributing
 
-Who is this for?
-----------------
+Who is this for? 👩‍💻
+----------------------
 - Developers (all levels)
 - Testers and QA
 - DevOps and SREs
 - CI/CD engineers
 - Anyone who wants to automate CLI workflows, with or without coding
 
-What can you build?
--------------------
+What can you build? 🏗️
+-----------------------
 - Automated shell/Docker workflows
 - End-to-end tests for CLI tools
 - DevOps and CI/CD pipelines
 - Custom workflow plugins
-
-.. image:: _static/iapetus-diagram.png
-   :alt: iapetus workflow diagram
