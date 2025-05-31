@@ -31,6 +31,7 @@ import (
 func init() {
 	RegisterBackend("bash", &BashBackend{})
 	RegisterBackend("docker", &DockerBackend{})
+	RegisterBackend("kubernetes", &KubernetesBackend{})
 }
 
 // Backend is the interface for task execution plugins.
@@ -198,6 +199,78 @@ func (d *DockerBackend) GetName() string {
 // GetStatus returns "available" if Docker is installed, else "unavailable".
 func (d *DockerBackend) GetStatus() string {
 	if _, err := exec.LookPath("docker"); err == nil {
+		return "available"
+	}
+	return "unavailable"
+}
+
+// KubernetesBackend runs tasks in Kubernetes pods using kubectl.
+type KubernetesBackend struct{}
+
+// ValidateTask checks if the task is valid for Kubernetes execution.
+func (k *KubernetesBackend) ValidateTask(task *Task) error {
+	if task.Image == "" {
+		return fmt.Errorf("kubernetes backend requires task.Image to be set")
+	}
+	if task.Command == "" {
+		return fmt.Errorf("kubernetes backend requires task.Command or task.Script to be set")
+	}
+	return nil
+}
+
+// RunTask executes the task in a Kubernetes pod using kubectl.
+// For demo: uses 'kubectl run' and waits for completion.
+// Limitations: Only works if kubectl is installed and configured. Env vars are not injected via --env for simplicity.
+func (k *KubernetesBackend) RunTask(task *Task) error {
+	if err := k.ValidateTask(task); err != nil {
+		return err
+	}
+
+	// Build the command to run in the pod
+	var cmdStr string
+	cmdStr = task.Command
+	if len(task.Args) > 0 {
+		cmdStr += " " + strings.Join(task.Args, " ")
+	}
+
+	// Generate a unique pod name
+	podName := fmt.Sprintf("iapetus-%s-%d", strings.ToLower(task.Name), os.Getpid())
+
+	// Build kubectl args
+	kubectlArgs := []string{
+		"run", podName,
+		"--image", task.Image,
+		"--restart", "Never",
+		"--rm", // auto-delete pod after completion
+		"--attach",
+		"--command", "--",
+		"sh", "-c", cmdStr,
+	}
+	cmd := exec.Command("kubectl", kubectlArgs...)
+
+	output, err := cmd.CombinedOutput()
+	task.Actual.Output = string(output)
+	task.Actual.ExitCode = 0
+	if err != nil {
+		task.Actual.Error = err.Error()
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			task.Actual.ExitCode = exitErr.ExitCode()
+		} else {
+			task.Actual.ExitCode = 1
+		}
+		return fmt.Errorf("kubectl run failed: %w\nOutput: %s", err, output)
+	}
+	// Run assertions and propagate errors
+	err = RunAssertions(task)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (k *KubernetesBackend) GetName() string { return "kubernetes" }
+func (k *KubernetesBackend) GetStatus() string {
+	if _, err := exec.LookPath("kubectl"); err == nil {
 		return "available"
 	}
 	return "unavailable"

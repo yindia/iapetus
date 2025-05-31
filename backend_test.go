@@ -205,3 +205,52 @@ func TestBashBackend_RunTask_AssertionFail(t *testing.T) {
 		t.Errorf("expected assertion error, got %v", err)
 	}
 }
+
+func kubectlAvailable() bool {
+	_, err := exec.LookPath("kubectl")
+	if err != nil {
+		return false
+	}
+	cmd := exec.Command("kubectl", "version", "--client")
+	if err := cmd.Run(); err != nil {
+		return false
+	}
+	return true
+}
+
+func TestKubernetesBackend_ValidateTask(t *testing.T) {
+	b := &KubernetesBackend{}
+	task := NewTask("test", 0, zap.NewNop())
+	task.Image = "alpine"
+	task.Command = "echo"
+	if err := b.ValidateTask(task); err != nil {
+		t.Errorf("expected nil, got %v", err)
+	}
+	task.Image = ""
+	if err := b.ValidateTask(task); err == nil || !strings.Contains(err.Error(), "Image") {
+		t.Errorf("expected image error, got %v", err)
+	}
+	task.Image = "alpine"
+	task.Command = ""
+	if err := b.ValidateTask(task); err == nil || !strings.Contains(err.Error(), "Command") {
+		t.Errorf("expected command error, got %v", err)
+	}
+}
+
+func TestKubernetesBackend_RunTask(t *testing.T) {
+	if !kubectlAvailable() {
+		t.Skip("kubectl not available")
+	}
+	b := &KubernetesBackend{}
+	task := NewTask("k8s-echo", 5*time.Second, zap.NewNop())
+	task.Image = "alpine"
+	task.Command = "echo"
+	task.Args = []string{"hello-from-k8s"}
+	task.Asserts = []func(*Task) error{AssertOutputContains("hello-from-k8s")}
+	if err := b.RunTask(task); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !strings.Contains(task.Actual.Output, "hello-from-k8s") {
+		t.Errorf("expected output to contain 'hello-from-k8s', got %q", task.Actual.Output)
+	}
+}
