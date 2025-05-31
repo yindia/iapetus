@@ -49,6 +49,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// DefaultRetryDelay is the default delay between retries if not specified per task.
+var DefaultRetryDelay time.Duration = 1 * time.Second
+
 // assertionYAML is a helper struct for parsing assertions from YAML
 // Supports all built-in assertion types.
 type assertionYAML struct {
@@ -66,6 +69,7 @@ type taskYAML struct {
 	Args       []string          `yaml:"args,omitempty"`
 	Timeout    string            `yaml:"timeout,omitempty"`
 	Retries    int               `yaml:"retries,omitempty"`
+	RetryDelay string            `yaml:"retry_delay,omitempty"` // Delay between retries (e.g. "2s"). Defaults to 1s if not set.
 	Depends    []string          `yaml:"depends,omitempty"`
 	EnvMap     map[string]string `yaml:"env_map,omitempty"`
 	Image      string            `yaml:"image,omitempty"`
@@ -125,6 +129,15 @@ func LoadWorkflowFromYAML(path string) (*Workflow, error) {
 				return nil, fmt.Errorf("invalid timeout for task %s: %w", t.Name, err)
 			}
 			task.Timeout = dur
+		}
+		if t.RetryDelay != "" {
+			dur, err := time.ParseDuration(t.RetryDelay)
+			if err != nil {
+				return nil, fmt.Errorf("invalid retry_delay for task %s: %w", t.Name, err)
+			}
+			task.RetryDelay = dur
+		} else {
+			task.RetryDelay = DefaultRetryDelay
 		}
 		for _, a := range t.RawAsserts {
 			if a.ExitCode != nil {

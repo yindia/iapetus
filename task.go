@@ -30,6 +30,8 @@ type Task struct {
 	Command string // The command to execute
 	// Retries is the number of retry attempts if assertions fail.
 	Retries int // Number of retry attempts if assertions fail
+	// RetryDelay is the delay between retries. If zero, defaults to 1s.
+	RetryDelay time.Duration // Delay between retries (default: 1s if not set)
 	// Args are command line arguments for the command.
 	Args []string // Command line arguments
 	// Timeout is the maximum execution time for the task.
@@ -144,14 +146,19 @@ func (t *Task) Run() error {
 	}
 
 	var lastErr error
+	// Use per-task retry delay if set, otherwise default to 1s
+	retryDelay := t.RetryDelay
+	if retryDelay == 0 {
+		retryDelay = DefaultRetryDelay
+	}
 	for attempt := 1; attempt <= t.Retries; attempt++ {
 		t.logger.Debug("Attempt", zap.Int("attempt", attempt), zap.Int("retries", t.Retries), zap.String("task", t.Name))
 		err := backend.RunTask(t)
 		if err != nil {
 			lastErr = err
 			if attempt < t.Retries {
-				t.logger.Debug("Retrying task after failure", zap.String("task", t.Name))
-				time.Sleep(1 * time.Second)
+				t.logger.Debug("Retrying task after failure", zap.String("task", t.Name), zap.Duration("retry_delay", retryDelay))
+				time.Sleep(retryDelay)
 				continue
 			}
 			return fmt.Errorf("task %s failed after %d attempts: %w", t.Name, t.Retries, err)
@@ -273,4 +280,10 @@ func (t *Task) AddEnvMap(envMap map[string]string) *Task {
 func (t *Task) Logger() *zap.Logger {
 	t.EnsureDefaults()
 	return t.logger
+}
+
+// SetRetryDelay sets the delay between retries for the task.
+func (t *Task) SetRetryDelay(delay time.Duration) *Task {
+	t.RetryDelay = delay
+	return t
 }

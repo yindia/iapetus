@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/yindia/iapetus"
 	"go.uber.org/zap"
@@ -71,8 +72,9 @@ var TASK_GET_PODS_A = iapetus.Task{
 		iapetus.AssertExitCode(0),
 		AssertPodsRunning,
 	},
-	Depends: []string{"Deploy Nginx in A"},
-	Retries: 10,
+	Depends:    []string{"Deploy Nginx in A"},
+	Retries:    10,
+	RetryDelay: 2 * time.Second,
 }
 
 var TASK_GET_PODS_B = iapetus.Task{
@@ -83,8 +85,9 @@ var TASK_GET_PODS_B = iapetus.Task{
 		iapetus.AssertExitCode(0),
 		AssertPodsRunning,
 	},
-	Depends: []string{"Deploy Nginx in B"},
-	Retries: 10,
+	Depends:    []string{"Deploy Nginx in B"},
+	Retries:    10,
+	RetryDelay: 2 * time.Second,
 }
 
 var TASK_DELETE_DEPLOYMENT_A = iapetus.Task{
@@ -269,6 +272,8 @@ func AssertPodsRunning(t *iapetus.Task) error {
 			return nil // At least one pod is running
 		}
 	}
+	// If no pods are running, sleep before returning error to allow for retry delay
+	time.Sleep(2 * time.Second)
 	return fmt.Errorf("no pods in Running state\nRaw output: %s", t.Actual.Output)
 }
 
