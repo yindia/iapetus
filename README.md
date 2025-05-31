@@ -1,11 +1,11 @@
-# iapetus 🚀  
-**The Ultimate Open Source Workflow Orchestrator for CLI, DevOps, and CI/CD**
+# iapetus 🚀
+
+**The Open Source Workflow Engine for DevOps, CI/CD, and Automation**
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/yindia/iapetus.svg)](https://pkg.go.dev/github.com/yindia/iapetus)
 [![Go Report Card](https://goreportcard.com/badge/github.com/yindia/iapetus)](https://goreportcard.com/report/github.com/yindia/iapetus)
 [![codecov](https://codecov.io/gh/yindia/iapetus/graph/badge.svg?token=6S99FUSPOC)](https://codecov.io/gh/yindia/iapetus)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/yindia/iapetus/pulls)
 
 ---
 
@@ -14,17 +14,13 @@
 
 ---
 
-## ✨ What is iapetus?
+## Why iapetus?
 
-**iapetus** is a blazing-fast, extensible workflow engine for automating command-line tasks, DevOps pipelines, and end-to-end tests.  
-It's like GitHub Actions, but local, hackable, and embeddable in your Go code or CI.
-
-- **Run any CLI tool** (docker, kubectl, terraform, your scripts)
-- **Chain steps with dependencies** (DAG, not just linear)
-- **Assert on outputs, exit codes, JSON, and more**
-- **Run steps in parallel, in containers, or on your host**
-- **Write workflows in YAML or Go**
-- **Plug in your own backends, hooks, and assertions**
+- **Lightning-fast**: Parallel, dependency-aware execution
+- **Pluggable**: Bash, Docker, and custom backends
+- **Assertions**: Output, exit code, JSON, regex, and more
+- **YAML or Go**: Use as config or code
+- **Battle-tested**: For CI/CD, DevOps, and E2E testing
 
 ---
 
@@ -32,34 +28,9 @@ It's like GitHub Actions, but local, hackable, and embeddable in your Go code or
 
 ![demo](https://github.com/user-attachments/assets/521ce88d-609d-44bb-a605-244eb80429f9)
 
-*Run complex workflows, see real-time results, and catch errors instantly!*
-
 ---
 
-## 🏆 Why iapetus?
-
-- **Lightning-fast**: Parallel, dependency-aware execution
-- **Battle-tested**: Stress, property-based, and concurrency tests
-- **Pluggable**: Add your own backends (Docker, Kubernetes, Lambda, ...)
-- **Observability**: Built-in logging, hooks, and metrics
-- **Zero lock-in**: 100% open source, no cloud required
-- **Dev-friendly**: Fluent Go API, YAML config, and rich docs
-
----
-
-## 🔥 Real-World Use Cases
-
-- **CI/CD pipelines**: Automate builds, tests, and deployments
-- **DevOps automation**: Smoke tests, environment setup, health checks
-- **E2E testing**: Validate CLI tools, microservices, and APIs
-- **Data pipelines**: Orchestrate ETL, validation, and reporting
-- **Local developer automation**: Script repeatable workflows
-
----
-
-## ⚡️ 1-Minute Quickstart
-
-**No Go experience needed!**
+## Quickstart
 
 ```sh
 git clone https://github.com/yindia/iapetus.git
@@ -67,12 +38,9 @@ cd iapetus/example/yaml
 go run main_docker.go
 ```
 
-**What you'll see:**  
-- Each step runs in a container, output is checked, and results are shown in real time.
-
 ---
 
-## 📝 Example Workflow (YAML)
+## Example: YAML Workflow
 
 ```yaml
 name: hello-world
@@ -86,7 +54,7 @@ steps:
 
 ---
 
-## 🧑‍💻 Example Workflow (Go)
+## Example: Go API
 
 ```go
 task := iapetus.NewTask("say-hello", 2*time.Second, nil).
@@ -99,81 +67,38 @@ workflow.Run()
 
 ---
 
-## 🧩 Features
+## Features
 
-- **Parallel, dependency-aware execution** (DAG)
-- **Built-in & custom assertions** (exit code, output, JSON, regex, ...)
+- **Parallel, dependency-aware execution**
+- **Built-in & custom assertions**
 - **Retries, timeouts, env vars, container images**
 - **Plugin backends**: Bash, Docker, and more
 - **Hooks for logging, metrics, and custom logic**
-- **YAML or Go: your choice**
-- **Battle-tested: stress, property-based, and concurrency tests**
 - **Beautiful logs and error reporting**
 
 ---
 
-## 🔌 Extensible Plugin System
+## Learn More
 
-- **Backends**: Run tasks in bash, Docker, or your own system
-- **Assertions**: Add custom checks for any output
-- **Hooks**: Integrate with metrics, tracing, or notifications
-
----
-
-## 🏗️ Architecture
-
-```mermaid
-graph TD
-    A[iapetus Core] --> B[Docker Plugin]
-    A --> C[Kubernetes Plugin]
-    A --> D[Lambda Plugin]
-    A --> E[Custom Plugin]
-    A --> J["Bash Plugin (default)"]
-    B --> F[Docker Engine]
-    C --> G[K8s Cluster]
-    D --> H[AWS Lambda]
-    E --> I[Your System]
-    J --> K[Bash Shell]
-```
+- **Docs:** [iapetus.readthedocs.io/en/latest/index.html](https://iapetus.readthedocs.io/en/latest/index.html)
+- [API Reference](https://iapetus.readthedocs.io/en/latest/api.html)
+- [YAML Reference](https://iapetus.readthedocs.io/en/latest/yaml.html)
+- [FAQ](https://iapetus.readthedocs.io/en/latest/faq.html)
+- [Contributing Guide](https://iapetus.readthedocs.io/en/latest/contributing.html)
 
 ---
 
-## 📚 Learn More
-
-- [Usage Guide](USAGE.md)
-- [API & YAML Reference](REFERENCE.md)
-- [Full GoDoc](https://pkg.go.dev/github.com/yindia/iapetus)
-- [YAML Example](example/yaml/workflow_docker.yaml)
-- [Go API Example](example/docker/main.go)
-- [FAQ](#faq)
-- [Contributing Guide](CONTRIBUTING.md)
-
----
-
-## 🤝 Join the Community
-
-- [Discussions](https://github.com/yindia/iapetus/discussions)
-- [Issues](https://github.com/yindia/iapetus/issues)
-
----
-
-## ⭐️ Star iapetus!
-
-If you love iapetus, **please [star the repo](https://github.com/yindia/iapetus/stargazers)** and share it with your friends and colleagues!
-
----
-
-## 🛠️ Contributing
+## Contributing
 
 We welcome PRs, issues, and feedback!  
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get started.
+See [Contributing Guide](https://iapetus.readthedocs.io/en/latest/contributing.html).
 
 ---
 
-## 📜 License
+## License
 
 MIT
 
 ---
 
-### [⬆️ Back to top](#iapetus-)
+**Star iapetus if you love it!** ⭐️
