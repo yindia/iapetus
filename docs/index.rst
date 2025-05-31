@@ -5,8 +5,18 @@ Welcome to iapetus!
 
 **iapetus** helps you automate, test, and orchestrate command-line tasks—using simple YAML files or Go code.
 
-- **No Go experience needed!** Start with YAML.
-- **Go power user?** Use the Go API for full control.
+.. toctree::
+   :maxdepth: 2
+   :caption: Documentation
+
+   quickstart
+   concepts
+   tutorials
+   howto
+   api
+   yaml
+   faq
+   contributing
 
 Who is this for?
 ----------------
@@ -25,16 +35,3 @@ What can you build?
 
 .. image:: _static/iapetus-diagram.png
    :alt: iapetus workflow diagram
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Documentation
-
-   quickstart
-   concepts
-   tutorials
-   howto
-   api
-   yaml
-   faq
-   contributing
