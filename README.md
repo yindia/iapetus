@@ -1,5 +1,8 @@
 # iapetus 🚀
 
+> **Why "iapetus"?**  
+> Iapetus is a moon of Saturn, known for its striking two-tone appearance and mysterious equatorial ridge. Like its namesake, iapetus the workflow engine is designed for flexibility, contrast, and exploring new frontiers in automation—bridging the worlds of local scripts, containers, and cloud-native workflows.
+
 **The Open Source Workflow Engine for DevOps, CI/CD, and Automation**
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/yindia/iapetus.svg)](https://pkg.go.dev/github.com/yindia/iapetus)
@@ -13,7 +16,7 @@
 
 ---
 
-# ⚠️ API subject to change! iapetus is in heavy development. Expect breaking changes. ⚠️
+**⚠️ API subject to change! iapetus is in heavy development. Expect breaking changes. ⚠️**
 
 
 ## ✨ Why iapetus?
