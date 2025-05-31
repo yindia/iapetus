@@ -40,20 +40,15 @@ archives:
       - goos: windows
         formats: [zip]
 
-brew:
+homebrew_casks:
   name: iapetus
-  tap:
+  binary: iapetus
+  directory: Casks
+  repository:
     owner: yindia
-    name: iapetus  # This should be your tap repo, e.g., github.com/yindia/homebrew-tap
+    name: iapetus
   description: "The open-source workflow engine for DevOps, CI/CD, and automation."
-  homepage: "https://github.com/yindia/iapetus"
-  caveats: |
-    To get started, run:
-      iapetus --help
-  test: |
-    iapetus --help
-  install: |
-    bin.install "iapetus"
+
 
 changelog:
   sort: asc
