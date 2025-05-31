@@ -1,3 +1,5 @@
+# ⚠️ API subject to change! iapetus is in heavy development. Expect breaking changes. ⚠️
+
 # iapetus 🚀
 
 **The Open Source Workflow Engine for DevOps, CI/CD, and Automation**
