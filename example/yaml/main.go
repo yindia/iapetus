@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/yindia/iapetus"
-	_ "github.com/yindia/iapetus/plugins/docker"
 )
 
 func main() {

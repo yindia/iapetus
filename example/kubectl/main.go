@@ -69,9 +69,10 @@ var TASK_GET_PODS_A = iapetus.Task{
 	Args:    []string{"get", "pods", "-n", nsA, "-o", "json"},
 	Asserts: []func(*iapetus.Task) error{
 		iapetus.AssertExitCode(0),
-		AssertPodsExist,
+		AssertPodsRunning,
 	},
 	Depends: []string{"Deploy Nginx in A"},
+	Retries: 10,
 }
 
 var TASK_GET_PODS_B = iapetus.Task{
@@ -80,9 +81,10 @@ var TASK_GET_PODS_B = iapetus.Task{
 	Args:    []string{"get", "pods", "-n", nsB, "-o", "json"},
 	Asserts: []func(*iapetus.Task) error{
 		iapetus.AssertExitCode(0),
-		AssertPodsExist,
+		AssertPodsRunning,
 	},
 	Depends: []string{"Deploy Nginx in B"},
+	Retries: 10,
 }
 
 var TASK_DELETE_DEPLOYMENT_A = iapetus.Task{
@@ -256,16 +258,18 @@ var TASK_SUMMARY = iapetus.Task{
 	Depends: []string{"Get Pods in A", "Get Pods in B"},
 }
 
-func AssertPodsExist(t *iapetus.Task) error {
+func AssertPodsRunning(t *iapetus.Task) error {
 	pods := &v1.PodList{}
 	err := json.Unmarshal([]byte(t.Actual.Output), &pods)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal pods: %w\nRaw output: %s", err, t.Actual.Output)
 	}
-	if len(pods.Items) == 0 {
-		return fmt.Errorf("no pods found\nRaw output: %s", t.Actual.Output)
+	for _, pod := range pods.Items {
+		if pod.Status.Phase == v1.PodRunning {
+			return nil // At least one pod is running
+		}
 	}
-	return nil
+	return fmt.Errorf("no pods in Running state\nRaw output: %s", t.Actual.Output)
 }
 
 func main() {

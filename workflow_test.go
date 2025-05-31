@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/yindia/iapetus"
-	_ "github.com/yindia/iapetus/plugins/bash"
 	"go.uber.org/zap"
 )
 
@@ -25,6 +24,8 @@ func TestWorkflowRun(t *testing.T) {
 			name: "All Steps Pass",
 			workflow: func() *iapetus.Workflow {
 				wf := iapetus.NewWorkflow("all-steps-pass", zap.NewNop())
+				wf.Backend = "bash"
+				iapetus.RegisterBackend("bash", &iapetus.BashBackend{})
 				wf.AddTask(iapetus.Task{
 					Name:    "step1",
 					Command: "echo",

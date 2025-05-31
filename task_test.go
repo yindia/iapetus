@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/yindia/iapetus"
-	_ "github.com/yindia/iapetus/plugins/bash"
 )
 
 func TestIntegrationTest_Run(t *testing.T) {
@@ -17,6 +16,8 @@ func TestIntegrationTest_Run(t *testing.T) {
 			iapetus.AssertOutputEquals("Hello, World!\n"),
 		},
 	}
+	test.SetBackend("bash")
+	iapetus.RegisterBackend("bash", &iapetus.BashBackend{})
 
 	err := test.Run()
 	if err != nil {
@@ -139,35 +140,44 @@ func TestTask_ExpectDSL(t *testing.T) {
 
 func TestTask_EnvVars(t *testing.T) {
 	t.Run("only EnvMap", func(t *testing.T) {
+		b := &iapetus.BashBackend{}
 		task := &iapetus.Task{
 			Command: "sh",
 			Args:    []string{"-c", "echo $FOO"},
 			EnvMap:  map[string]string{"FOO": "bar"},
 			Asserts: []func(*iapetus.Task) error{iapetus.AssertOutputEquals("bar\n")},
 		}
+		task.SetBackend("bash")
+		iapetus.RegisterBackend("bash", b)
 		if err := task.Run(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
 	})
 
 	t.Run("EnvMap wins", func(t *testing.T) {
+		b := &iapetus.BashBackend{}
 		task := &iapetus.Task{
 			Command: "sh",
 			Args:    []string{"-c", "echo $FOO"},
 			EnvMap:  map[string]string{"FOO": "baz"},
 			Asserts: []func(*iapetus.Task) error{iapetus.AssertOutputEquals("baz\n")},
 		}
+		task.SetBackend("bash")
+		iapetus.RegisterBackend("bash", b)
 		if err := task.Run(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
 	})
 
 	t.Run("no envs, default", func(t *testing.T) {
+		b := &iapetus.BashBackend{}
 		task := &iapetus.Task{
 			Command: "sh",
 			Args:    []string{"-c", "echo $FOO"},
 			Asserts: []func(*iapetus.Task) error{iapetus.AssertOutputEquals("\n")},
 		}
+		task.SetBackend("bash")
+		iapetus.RegisterBackend("bash", b)
 		if err := task.Run(); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
