@@ -33,7 +33,7 @@
 ```sh
 git clone https://github.com/yindia/iapetus.git
 cd iapetus/example/yaml
-go run main_docker.go
+go run main.go
 ```
 
 ---
