@@ -40,4 +40,3 @@ Project Links
 -------------
 
 - `GitHub Repository <https://github.com/yindia/iapetus>`_
-- `
