@@ -3,13 +3,19 @@
 Welcome to iapetus!
 ===================
 
+.. toctree::
+   :maxdepth: 2
+
+   quickstart
+
+This is the home page.
+
 **iapetus** helps you automate, test, and orchestrate command-line tasks—using simple YAML files or Go code.
 
 .. toctree::
    :maxdepth: 2
    :caption: Documentation
 
-   quickstart
    concepts
    tutorials
    howto
