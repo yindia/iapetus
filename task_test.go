@@ -66,10 +66,15 @@ func TestIntegrationTest_RunCommandError(t *testing.T) {
 			iapetus.AssertExitCode(1),
 		},
 	}
+	test.SetBackend("bash")
+	iapetus.RegisterBackend("bash", &iapetus.BashBackend{})
 
 	err := test.Run()
 	if err == nil {
 		t.Fatalf("expected error for invalid command, got nil")
+	}
+	if test.Actual.ExitCode == 0 {
+		t.Errorf("expected non-zero exit code for invalid command, got 0")
 	}
 }
 

@@ -262,16 +262,22 @@ func TestDagScheduler_ContextCancellation(t *testing.T) {
 
 func TestDagScheduler_ObservabilityHooks(t *testing.T) {
 	var mu sync.Mutex
-	calls := []string{}
+	calls := make(map[string]map[string]bool) // taskName -> hookType -> called
+	hookTypes := []string{"start", "success", "fail", "complete"}
+	for _, name := range []string{"ok", "fail"} {
+		calls[name] = map[string]bool{}
+	}
 	w := NewWorkflow("hooks-test", zap.NewNop())
-	w.AddOnTaskStartHook(func(task *Task) { mu.Lock(); calls = append(calls, "start:"+task.Name); mu.Unlock() })
-	w.AddOnTaskSuccessHook(func(task *Task) { mu.Lock(); calls = append(calls, "success:"+task.Name); mu.Unlock() })
-	w.AddOnTaskFailureHook(func(task *Task, err error) { mu.Lock(); calls = append(calls, "fail:"+task.Name); mu.Unlock() })
-	w.AddOnTaskCompleteHook(func(task *Task) { mu.Lock(); calls = append(calls, "complete:"+task.Name); mu.Unlock() })
+	w.AddOnTaskStartHook(func(task *Task) { mu.Lock(); calls[task.Name]["start"] = true; mu.Unlock() })
+	w.AddOnTaskSuccessHook(func(task *Task) { mu.Lock(); calls[task.Name]["success"] = true; mu.Unlock() })
+	w.AddOnTaskFailureHook(func(task *Task, err error) { mu.Lock(); calls[task.Name]["fail"] = true; mu.Unlock() })
+	w.AddOnTaskCompleteHook(func(task *Task) { mu.Lock(); calls[task.Name]["complete"] = true; mu.Unlock() })
+	RegisterBackend("bash", &BashBackend{})
 	tasks := []*Task{
 		{
 			Name:    "ok",
 			Command: "true",
+			Backend: "bash",
 			Asserts: []func(*Task) error{
 				func(t *Task) error { return nil },
 			},
@@ -279,6 +285,7 @@ func TestDagScheduler_ObservabilityHooks(t *testing.T) {
 		{
 			Name:    "fail",
 			Command: "true",
+			Backend: "bash",
 			Asserts: []func(*Task) error{
 				func(t *Task) error { return errors.New("fail") },
 			},
@@ -289,26 +296,27 @@ func TestDagScheduler_ObservabilityHooks(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
-	// Check that all hooks were called for both tasks
+	// Check that all hooks were called for both tasks as appropriate
 	mu.Lock()
 	defer mu.Unlock()
-	foundStart, foundSuccess, foundFail, foundComplete := false, false, false, false
-	for _, c := range calls {
-		if c == "start:ok" || c == "start:fail" {
-			foundStart = true
+	for _, name := range []string{"ok", "fail"} {
+		for _, hook := range hookTypes {
+			if hook == "success" && name == "fail" {
+				if calls[name][hook] {
+					t.Errorf("unexpected success hook for failed task %s", name)
+				}
+				continue
+			}
+			if hook == "fail" && name == "ok" {
+				if calls[name][hook] {
+					t.Errorf("unexpected fail hook for successful task %s", name)
+				}
+				continue
+			}
+			if !calls[name][hook] {
+				t.Errorf("missing %s hook for task %s", hook, name)
+			}
 		}
-		if c == "success:ok" {
-			foundSuccess = true
-		}
-		if c == "fail:fail" {
-			foundFail = true
-		}
-		if c == "complete:ok" || c == "complete:fail" {
-			foundComplete = true
-		}
-	}
-	if !foundStart || !foundSuccess || !foundFail || !foundComplete {
-		t.Errorf("not all hooks were called: %v", calls)
 	}
 }
 
