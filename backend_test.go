@@ -211,7 +211,8 @@ func kubectlAvailable() bool {
 	if err != nil {
 		return false
 	}
-	cmd := exec.Command("kubectl", "version", "--client")
+	// Check if we can reach a cluster
+	cmd := exec.Command("kubectl", "cluster-info")
 	if err := cmd.Run(); err != nil {
 		return false
 	}
