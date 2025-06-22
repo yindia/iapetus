@@ -80,11 +80,6 @@ workflow.Run()
 
 We welcome PRs, issues, and feedback! See [Contributing Guide](https://iapetus.readthedocs.io/en/latest/contributing.html).
 
----
-
-## 📜 License
-
-MIT
 
 ---
 
