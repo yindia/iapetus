@@ -84,3 +84,5 @@ We welcome PRs, issues, and feedback! See [Contributing Guide](https://iapetus.r
 ---
 
 🌟 **Star iapetus if you love it!**
+
+[![Star History Chart](https://api.star-history.com/svg?repos=yindia/iapetus&type=Date)](https://www.star-history.com/#yindia/iapetus&Date)
