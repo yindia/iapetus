@@ -8,7 +8,6 @@
 
 🚀 **Open-source workflow engine for DevOps, CI/CD, and automation**  
 ⚡️ Automate, test, and orchestrate anything—shell, container, or cloud  
-🛡️ No YAML hell. No vendor lock-in. 100% open source
 
 ---
 
