@@ -18,6 +18,7 @@
 package iapetus
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -106,8 +107,21 @@ func (b *BashBackend) RunTask(t *Task) error {
 		cmd.Dir = t.WorkingDir
 	}
 	t.Logger().Debug("Command", zap.String("cmd", t.Command+" "+strings.Join(t.Args, " ")))
-	output, err := cmd.CombinedOutput()
-	t.Actual.Output = string(output)
+
+	var outputBuffer bytes.Buffer
+	if t.Stdout != nil {
+		cmd.Stdout = t.Stdout
+	} else {
+		cmd.Stdout = &outputBuffer
+	}
+	if t.Stderr != nil {
+		cmd.Stderr = t.Stderr
+	} else {
+		cmd.Stderr = &outputBuffer
+	}
+
+	err := cmd.Run()
+	t.Actual.Output = outputBuffer.String()
 	t.Actual.ExitCode = GetExitCode(err)
 	if err != nil {
 		t.Actual.Error = err.Error()

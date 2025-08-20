@@ -2,6 +2,7 @@ package iapetus
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -48,6 +49,10 @@ type Task struct {
 	Actual Output // Actual command output and results
 	// Asserts is a list of custom validation functions (assertions).
 	Asserts []func(*Task) error // Custom validation functions
+	// Stdout is the writer for the command's standard output.
+	Stdout io.Writer `json:"-" yaml:"-"`
+	// Stderr is the writer for the command's standard error.
+	Stderr io.Writer `json:"-" yaml:"-"`
 	// logger is the zap logger used for this task.
 	logger  *zap.Logger // Logger for this task
 	Backend string      // Per-task backend override
